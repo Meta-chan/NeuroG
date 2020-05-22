@@ -18,4 +18,5 @@ void main()
 									(uint(inweightselem.b) << 16)	|
 									(uint(inweightselem.g) << 8)	|
 									(uint(inweightselem.r)));
+	//outweightselem = 0.42 + 0.001 * outweightselem;
 }

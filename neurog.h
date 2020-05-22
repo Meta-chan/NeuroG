@@ -12,8 +12,8 @@ private:
 
 	struct FileHeader
 	{
-		char signature[3];
-		unsigned char version;
+		char signature[3]		= { 'I', 'N', 'R' };
+		unsigned char version	= 0;
 	};
 
 	struct TF	//Texture and Framebuffer
@@ -109,9 +109,10 @@ private:
 	bool _linkprogram(const char *programname, GLuint vertex, GLuint fragment, GLuint *program);
 	bool _initprograms();
 	bool _initobjects();
+	bool _inittexture(GLuint *texture, unsigned int width, unsigned int height, const void *data, bool bitwise);
 	bool _inittextures(unsigned int nlayers, const unsigned int *layers, FILE *file);
-	bool _init(const wchar_t *filepath);
 	bool _init(unsigned int nlayers, const unsigned int *layers, FILE *file);
+	bool _initfromfile(const wchar_t *filepath);
 
 public:
 	NeuroG(unsigned int nlayers, const unsigned int *layers, bool *ok);

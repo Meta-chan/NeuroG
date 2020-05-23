@@ -18,4 +18,5 @@ void main()
 									(uint(invectorelem.r)));
 	float lastvectorelem = texelFetch(lastvector, ivec2(0, iposition), 0).r;
 	lasterrorelem = (1 - lastvectorelem * lastvectorelem) * (goalelem - lastvectorelem);
+	//lasterrorelem = 0.001 * lasterrorelem + lastvectorelem;
 }

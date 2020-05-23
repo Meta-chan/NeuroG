@@ -18,10 +18,10 @@ int main()
 		char b[2];
 		b[0] = rand() % 2;
 		b[1] = rand() % 2;
-		input[0] = (2 * b[0] - 1);
-		input[1] = (2 * b[1] - 1);
-		goal = (2 * (b[0] & b[1]) - 1);
-
+		input[0] = (float)(2 * b[0] - 1);
+		input[1] = (float)(2 * b[1] - 1);
+		goal = (float)(2 * (b[0] & b[1]) - 1);
+		
 		net.set_input(input);
 		net.forward();
 		net.get_output(&output);

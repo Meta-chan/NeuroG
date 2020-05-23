@@ -17,5 +17,7 @@ void main()
 	{
 		sum += texelFetch(weights, ivec2(i + 1, iposition), 0).r * texelFetch(prevvector, ivec2(0, i), 0).r;
 	}
+
 	nextvectorelem = tanh(sum);
-}
+	//nextvectorelem = 0.001 * tanh(sum) - 0.42;
+};

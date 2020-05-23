@@ -4,12 +4,13 @@
 #include <time.h>
 #include <random>
 #include <share.h>
+#include <assert.h>
 #define IR_IMPLEMENT
 #include <ir_resource/ir_memresource.h>
 #include <ir_resource/ir_file_resource.h>
 #include <ir_resource/ir_shader_resource.h>
 
-bool NeuroG::_initglut()
+bool NeuroG::_init_glut()
 {
 	//Making argv
 	int argc;
@@ -41,7 +42,7 @@ bool NeuroG::_initglut()
 	return gl3patch();
 };
 
-bool NeuroG::_compileshader(const char *filename, bool vertex, GLuint *shader)
+bool NeuroG::_compile_shader(const char *filename, bool vertex, GLuint *shader)
 {
 	//Opening file
 	char relpath[128];
@@ -53,7 +54,7 @@ bool NeuroG::_compileshader(const char *filename, bool vertex, GLuint *shader)
 	fseek(file, 0, SEEK_END);
 	unsigned int filesize = ftell(file);
 	fseek(file, 0, SEEK_SET);
-	
+
 	//Reading file
 	ir::MemResource<char> source = (char*)malloc(filesize + 1);
 	if (source == nullptr) return false;
@@ -78,11 +79,11 @@ bool NeuroG::_compileshader(const char *filename, bool vertex, GLuint *shader)
 		printf("OpenGL shader compilation error in file %s\n%s", filename, infoLog);
 		return false;
 	}
-	
+
 	return true;
 };
 
-bool NeuroG::_linkprogram(const char *programname, GLuint vertex, GLuint fragment, GLuint *program)
+bool NeuroG::_link_program(const char *programname, GLuint vertex, GLuint fragment, GLuint *program)
 {
 	*program = glCreateProgram();
 	if (*program == GL_ERR) return false;
@@ -103,63 +104,214 @@ bool NeuroG::_linkprogram(const char *programname, GLuint vertex, GLuint fragmen
 	return true;
 };
 
-bool NeuroG::_initprograms()
+bool NeuroG::_init_programs()
 {
 	ir::ShaderResource distribute1d, distribute2d, forward, lastbackward, backward, corrigate, bitwise1d, bitwise2d;
 
 	//Compiling shaders
-	if (!_compileshader("vertex_distribute_1d.c", true, &distribute1d.value())					||
-		!_compileshader("vertex_distribute_2d.c", true, &distribute2d.value())					||
-		!_compileshader("fragment_forward.c", false, &forward.value())							||
-		!_compileshader("fragment_lastbackward.c", false, &lastbackward.value())				||
-		!_compileshader("fragment_backward.c", false, &backward.value())						||
-		!_compileshader("fragment_corrigate.c", false, &corrigate.value())						||
-		!_compileshader("fragment_bitwise_1d.c", false, &bitwise1d.value())						||
-		!_compileshader("fragment_bitwise_2d.c", false, &bitwise2d.value())) return false;
-	
+	if (!_compile_shader("vertex_distribute_1d.c", true, &distribute1d.value()) ||
+		!_compile_shader("vertex_distribute_2d.c", true, &distribute2d.value()) ||
+		!_compile_shader("fragment_forward.c", false, &forward.value()) ||
+		!_compile_shader("fragment_lastbackward.c", false, &lastbackward.value()) ||
+		!_compile_shader("fragment_backward.c", false, &backward.value()) ||
+		!_compile_shader("fragment_corrigate.c", false, &corrigate.value()) ||
+		!_compile_shader("fragment_bitwise_1d.c", false, &bitwise1d.value()) ||
+		!_compile_shader("fragment_bitwise_2d.c", false, &bitwise2d.value())) return false;
+
 	//Linking programs
-	if (!_linkprogram("forward", distribute1d, forward, &_forwardprog.program)					||
-		!_linkprogram("lastbackward", distribute1d, lastbackward, &_lastbackwardprog.program)	||
-		!_linkprogram("backward", distribute1d, backward, &_backwardprog.program)				||
-		!_linkprogram("corrigate", distribute2d, corrigate, &_corrigateprog.program)			||
-		!_linkprogram("bitwise_1d", distribute1d, bitwise1d, &_bitwise1dprog.program)			||
-		!_linkprogram("bitwise_2d", distribute2d, bitwise2d, &_bitwise2dprog.program)) return false;
-	
+	if (!_link_program("forward", distribute1d, forward, &_forwardprog.program) ||
+		!_link_program("lastbackward", distribute1d, lastbackward, &_lastbackwardprog.program) ||
+		!_link_program("backward", distribute1d, backward, &_backwardprog.program) ||
+		!_link_program("corrigate", distribute2d, corrigate, &_corrigateprog.program) ||
+		!_link_program("bitwise_1d", distribute1d, bitwise1d, &_bitwise1dprog.program) ||
+		!_link_program("bitwise_2d", distribute2d, bitwise2d, &_bitwise2dprog.program)) return false;
+
 	//getting addresses of uniforms
-	if ((_forwardprog.nextlength = glGetUniformLocation(_forwardprog.program, "nextlength"))			== GL_ERR ||
-		(_forwardprog.prevlength = glGetUniformLocation(_forwardprog.program, "prevlength"))			== GL_ERR ||
-		(_forwardprog.prevvector = glGetUniformLocation(_forwardprog.program, "prevvector"))			== GL_ERR ||
-		(_forwardprog.weights = glGetUniformLocation(_forwardprog.program, "weights"))					== GL_ERR ||
+	if ((_forwardprog.nextlength = glGetUniformLocation(_forwardprog.program, "nextlength")) == GL_ERR ||
+		(_forwardprog.prevlength = glGetUniformLocation(_forwardprog.program, "prevlength")) == GL_ERR ||
+		(_forwardprog.prevvector = glGetUniformLocation(_forwardprog.program, "prevvector")) == GL_ERR ||
+		(_forwardprog.weights = glGetUniformLocation(_forwardprog.program, "weights")) == GL_ERR ||
 
-		(_lastbackwardprog.goal = glGetUniformLocation(_lastbackwardprog.program, "goal"))				== GL_ERR ||
-		(_lastbackwardprog.lastlength = glGetUniformLocation(_lastbackwardprog.program, "lastlength"))	== GL_ERR ||
-		(_lastbackwardprog.lestvector = glGetUniformLocation(_lastbackwardprog.program, "lastvector"))	== GL_ERR ||
+		(_lastbackwardprog.goal = glGetUniformLocation(_lastbackwardprog.program, "goal")) == GL_ERR ||
+		(_lastbackwardprog.lastlength = glGetUniformLocation(_lastbackwardprog.program, "lastlength")) == GL_ERR ||
+		(_lastbackwardprog.lestvector = glGetUniformLocation(_lastbackwardprog.program, "lastvector")) == GL_ERR ||
 
-		(_backwardprog.nextlength = glGetUniformLocation(_backwardprog.program, "nextlength"))			== GL_ERR ||
-		(_backwardprog.nexterror = glGetUniformLocation(_backwardprog.program, "nexterror"))			== GL_ERR ||
-		(_backwardprog.prevlength = glGetUniformLocation(_backwardprog.program, "prevlength"))			== GL_ERR ||
-		(_backwardprog.prevvector = glGetUniformLocation(_backwardprog.program, "prevvector"))			== GL_ERR ||
-		(_backwardprog.weights = glGetUniformLocation(_backwardprog.program, "weights"))				== GL_ERR ||
+		(_backwardprog.nextlength = glGetUniformLocation(_backwardprog.program, "nextlength")) == GL_ERR ||
+		(_backwardprog.nexterror = glGetUniformLocation(_backwardprog.program, "nexterror")) == GL_ERR ||
+		(_backwardprog.prevlength = glGetUniformLocation(_backwardprog.program, "prevlength")) == GL_ERR ||
+		(_backwardprog.prevvector = glGetUniformLocation(_backwardprog.program, "prevvector")) == GL_ERR ||
+		(_backwardprog.weights = glGetUniformLocation(_backwardprog.program, "weights")) == GL_ERR ||
 
-		(_corrigateprog.koef = glGetUniformLocation(_corrigateprog.program, "koef"))					== GL_ERR ||
-		(_corrigateprog.nextlength = glGetUniformLocation(_corrigateprog.program, "nextlength"))		== GL_ERR ||
-		(_corrigateprog.nexterror = glGetUniformLocation(_corrigateprog.program, "nexterror"))			== GL_ERR ||
-		(_corrigateprog.prevlength = glGetUniformLocation(_corrigateprog.program, "prevlength"))		== GL_ERR ||
-		(_corrigateprog.prevvector = glGetUniformLocation(_corrigateprog.program, "prevvector"))		== GL_ERR ||
-		(_corrigateprog.weights = glGetUniformLocation(_corrigateprog.program, "weights"))				== GL_ERR ||
-		
-		(_bitwise1dprog.length = glGetUniformLocation(_bitwise1dprog.program, "length"))				== GL_ERR ||
-		(_bitwise1dprog.vector = glGetUniformLocation(_bitwise1dprog.program, "vector"))				== GL_ERR ||
-		
-		(_bitwise2dprog.height = glGetUniformLocation(_bitwise2dprog.program, "height"))				== GL_ERR ||
-		(_bitwise2dprog.weights = glGetUniformLocation(_bitwise2dprog.program, "weights"))				== GL_ERR ||
-		(_bitwise2dprog.width = glGetUniformLocation(_bitwise2dprog.program, "width"))					== GL_ERR)
+		(_corrigateprog.koef = glGetUniformLocation(_corrigateprog.program, "koef")) == GL_ERR ||
+		(_corrigateprog.nextlength = glGetUniformLocation(_corrigateprog.program, "nextlength")) == GL_ERR ||
+		(_corrigateprog.nexterror = glGetUniformLocation(_corrigateprog.program, "nexterror")) == GL_ERR ||
+		(_corrigateprog.prevlength = glGetUniformLocation(_corrigateprog.program, "prevlength")) == GL_ERR ||
+		(_corrigateprog.prevvector = glGetUniformLocation(_corrigateprog.program, "prevvector")) == GL_ERR ||
+		(_corrigateprog.weights = glGetUniformLocation(_corrigateprog.program, "weights")) == GL_ERR ||
+
+		(_bitwise1dprog.length = glGetUniformLocation(_bitwise1dprog.program, "length")) == GL_ERR ||
+		(_bitwise1dprog.vector = glGetUniformLocation(_bitwise1dprog.program, "vector")) == GL_ERR ||
+
+		(_bitwise2dprog.height = glGetUniformLocation(_bitwise2dprog.program, "height")) == GL_ERR ||
+		(_bitwise2dprog.weights = glGetUniformLocation(_bitwise2dprog.program, "weights")) == GL_ERR ||
+		(_bitwise2dprog.width = glGetUniformLocation(_bitwise2dprog.program, "width")) == GL_ERR)
 		return false;
-	
+
 	return true;
 };
 
-bool NeuroG::_initvectors(unsigned int nlayers, const unsigned int *layers)
+bool NeuroG::_init_objects()
+{
+	//Initializing d1 distribution
+	GLfloat d1[] = { -1.0f, 1.0f };
+
+	glGenVertexArrays(1, &_distribute1dvao);
+	glBindVertexArray(_distribute1dvao);
+	glGenBuffers(1, &_distribute1dvbo);
+	glBindBuffer(GL_ARRAY_BUFFER, _distribute1dvbo);
+	glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(GLfloat), d1, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, sizeof(GLfloat), (GLvoid*)0);
+	glEnableVertexAttribArray(0);
+
+	//Initializing d2 distribution
+	GLfloat d2[] = { 1.0f,	1.0f,
+						-1.0f,	1.0f,
+						-1.0f,	-1.0f,
+
+						-1.0f,	-1.0f,
+						1.0f,	-1.0f,
+						1.0f,	1.0f,
+	};
+
+
+	glGenVertexArrays(1, &_distribute2dvao);
+	glBindVertexArray(_distribute2dvao);
+	glGenBuffers(1, &_distribute2dvbo);
+	glBindBuffer(GL_ARRAY_BUFFER, _distribute2dvbo);
+	glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(GLfloat), d2, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)sizeof(GLfloat));
+	glEnableVertexAttribArray(1);
+
+	return true;
+};
+
+bool NeuroG::_create_texture(GLuint *texture, unsigned int width, unsigned int height, const void *data, bool bitwise)
+{
+	glGenTextures(1, texture);
+	if (*texture == GL_ERR) return false;
+	glBindTexture(GL_TEXTURE_2D, *texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	if (bitwise) glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	else glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, data);
+	return true;
+};
+
+bool NeuroG::_create_framebuffer_texture(GLuint *texture, GLuint *framebuffer, unsigned int width, unsigned int height, const void *data, bool bitwise)
+{
+	glGenFramebuffers(1, framebuffer);
+	if (*framebuffer == GL_ERR) return false;
+	glBindFramebuffer(GL_FRAMEBUFFER, *framebuffer);
+	if (!_create_texture(texture, width, height, data, false)) return false;
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, *texture, 0);
+	glViewport(0, 0, width, height);
+	return true;
+};
+
+bool NeuroG::_store(GLuint texture, unsigned int width, unsigned int height, const float *data, GLuint framebuffer, GLuint bittexture)
+{
+	if (_hardware_direct_store)
+	{
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, data);
+	}
+	else
+	{
+		bool bufframe = (framebuffer == GL_ERR);
+		if (bufframe)
+		{
+			glGenFramebuffers(1, &framebuffer);
+			if (framebuffer == GL_ERR) return false;
+		}
+
+		bool buftex = (bittexture == GL_ERR);
+		if (buftex)
+		{
+			if (!_create_texture(&bittexture, width, height, data, true))
+			{
+				if (bufframe) glDeleteFramebuffers(1, &framebuffer);
+				return false;
+			}
+		}
+		else
+		{
+			glBindTexture(GL_TEXTURE_2D, bittexture);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		}
+
+		//program
+		if (width == 1)
+		{
+			glUseProgram(_bitwise1dprog.program);
+			glBindVertexArray(_distribute1dvao);
+			glUniform1i(_bitwise1dprog.length, height);
+		}
+		else
+		{
+			glUseProgram(_bitwise2dprog.program);
+			glBindVertexArray(_distribute2dvao);
+			glUniform1i(_bitwise2dprog.width, width);
+			glUniform1i(_bitwise2dprog.height, height);
+		}
+
+		//vector
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, bittexture);
+		glUniform1i((width == 1) ? _bitwise1dprog.vector : _bitwise2dprog.weights, 0);
+
+		//framebuffer
+		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+		glViewport(0, 0, width, height);
+
+		//calculate
+		if (width == 1) glDrawArrays(GL_LINES, 0, 2);
+		else glDrawArrays(GL_TRIANGLES, 0, 6);
+		glFinish();
+
+		if (bufframe) glDeleteFramebuffers(1, &framebuffer);
+		if (buftex) glDeleteTextures(1, &bittexture);
+	};
+
+	return true;
+};
+
+bool NeuroG::_init_test()
+{
+	//Direct store test
+	GLuint test = GL_ERR;
+	float data = - 1.0f / 3.0f;
+	if (!_create_texture(&test, 1, 1, &data, false)) return false;
+	data = 0;
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, &data);
+	_hardware_direct_store = (abs(data + 1.0f / 3.0f) < 0.001);
+	_hardware_direct_store = false;
+
+	//Store Test
+	data = -1.0f / 7.0f;
+	_store(test, 1, 1, &data, GL_ERR, GL_ERR);
+	data = 0;
+	glBindTexture(GL_TEXTURE_2D, test);
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, &data);
+
+	glDeleteTextures(1, &test);
+	return abs(data + 1.0f / 7.0f) < 0.001;
+};
+
+bool NeuroG::_init_vectors(unsigned int nlayers, const unsigned int *layers)
 {
 	_nlayers = nlayers;
 
@@ -174,91 +326,84 @@ bool NeuroG::_initvectors(unsigned int nlayers, const unsigned int *layers)
 	memcpy(_layers, layers, nlayers * sizeof(unsigned int));
 
 	//Initializing _weights (n - 1)
-	_weights = (TF2*)malloc((nlayers - 1) * sizeof(TF2));
-	if (_weights == nullptr) return false;
-	
+	for (unsigned int a = 0; a < 2; a++)
+	{
+		_weights[a] = (TF*)malloc((nlayers - 1) * sizeof(TF));
+		if (_weights[a] == nullptr) return false;
+		_weights[a].set_size(nlayers - 1);
+		for (unsigned int i = 0; i < (nlayers - 1); i++) { _weights[a][i].texture = GL_ERR;  _weights[a][i].framebuffer = GL_ERR; }
+	}
+
 	//Initializing _vectors (n)
 	_vectors = (TF*)malloc(nlayers * sizeof(TF));
 	if (_vectors == nullptr) return false;
+	_vectors.set_size(nlayers);
+	for (unsigned int i = 0; i < nlayers; i++) { _vectors[i].texture = GL_ERR; _vectors[i].framebuffer = GL_ERR; }
 
 	//Initializing _errors (n - 1)
 	_errors = (TF*)malloc((nlayers - 1) * sizeof(TF));
 	if (_errors == nullptr) return false;
-		
+	_errors.set_size(nlayers - 1);
+	for (unsigned int i = 0; i < (nlayers - 1); i++) { _errors[i].texture = GL_ERR; _errors[i].framebuffer = GL_ERR; }
+
 	return true;
 };
 
-bool NeuroG::_inittexture(GLuint *texture, unsigned int width, unsigned int height, const void *data, bool bitwise)
-{
-	glGenTextures(1, texture);
-	if (*texture == GL_ERR) return false;
-	glBindTexture(GL_TEXTURE_2D, *texture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	if (bitwise) glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data); 
-	else glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, data);
-	return true;
-};
-
-bool NeuroG::_inittextures(unsigned int nlayers, const unsigned int *layers, FILE *file)
+bool NeuroG::_init_textures(FILE *file)
 {
 	//Allocating maximal buffer
 	unsigned int maxsize = 0;
-	for (unsigned int i = 0; i < (nlayers - 1); i++)
+	for (unsigned int i = 0; i < (_nlayers - 1); i++)
 	{
-		if ((layers[i] + 1) * layers[i + 1] > maxsize) maxsize = (layers[i] + 1) * layers[i + 1];
+		if ((_layers[i] + 1) * _layers[i + 1] > maxsize) maxsize = (_layers[i] + 1) * _layers[i + 1];
 	}
 	ir::MemResource<float> buffer = (float*)malloc(maxsize * sizeof(float));
 	if (buffer == nullptr) return false;
 	memset(buffer, 0, maxsize * sizeof(float));
 	
 	//Initializing _vectors and _framebuffers
-	for (unsigned int i = 0; i < nlayers; i++)
+	if (_hardware_direct_store)
 	{
-		glGenFramebuffers(1, &_vectors[i].framebuffer);
-		if (_vectors[i].framebuffer == GL_ERR) return false;
-		glBindFramebuffer(GL_FRAMEBUFFER, _vectors[i].framebuffer);
-		if (!_inittexture(&_vectors[i].texture, 1, layers[i], buffer, false)) return false;
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _vectors[i].texture, 0);
-		glViewport(0, 0, 1, layers[i]);
+		if (!_create_texture(&_vectors[0].texture, 1, _layers[0], buffer, false)) return false;
+	}
+	else
+	{
+		if (!_create_framebuffer_texture(&_vectors[0].texture, &_vectors[0].framebuffer, 1, _layers[0], buffer, false)) return false;
+	}
+
+	for (unsigned int i = 1; i < _nlayers; i++)
+	{
+		if (!_create_framebuffer_texture(&_vectors[i].texture, &_vectors[i].framebuffer, 1, _layers[i], buffer, false)) return false;
 	}
 
 	//Initializing _errors
-	for (unsigned int i = 0; i < (nlayers - 1); i++)
+	for (unsigned int i = 0; i < (_nlayers - 1); i++)
 	{
-		glGenFramebuffers(1, &_errors[i].framebuffer);
-		if (_errors[i].framebuffer == GL_ERR) return false;
-		glBindFramebuffer(GL_FRAMEBUFFER, _errors[i].framebuffer);
-		if (!_inittexture(&_errors[i].texture, 1, layers[i + 1], buffer, false)) return false;
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _errors[i].texture, 0);
-		glViewport(0, 0, 1, layers[i + 1]);
+		if (!_create_framebuffer_texture(&_errors[i].texture, &_errors[i].framebuffer, 1, _layers[i + 1], buffer, false)) return false;
 	}
 
-	//Initializing _buyteinput
-	if (!_inittexture(&_byteinput, 1, layers[0], buffer, true)) return false;
-	
-	//Initializing _bytegoal
-	if (!_inittexture(&_byteinput, 1, layers[_nlayers - 1], buffer, true)) return false;
-	
+	//Initializing goal (bitwise)
+	if (!_create_texture(&_goal_texture, 1, _layers[_nlayers - 1], buffer, true)) return false;
+
+	//Initializing extra vectors/framebuffers
+	if (!_hardware_direct_store)
+	{
+		if (!_create_texture(&_bitinput_texture, 1, _layers[0], buffer, true)) return false;
+	}
+
 	//Initializing weights
 	std::default_random_engine generator;
 	generator.seed((unsigned int)time(nullptr));
 	std::uniform_real_distribution<float> distribution(-1.0f, 1.0f);
 
-	glUseProgram(_bitwise2dprog.program);
-	glBindVertexArray(_distribute1dvao);
-	glActiveTexture(GL_TEXTURE0);
-	glUniform1i(_bitwise2dprog.weights, 0);
-	for (unsigned int i = 0; i < (nlayers - 1); i++)
+	for (unsigned int i = 0; i < (_nlayers - 1); i++)
 	{
 		if (file == nullptr)
 		{
-			for (unsigned int j = 0; j < (layers[i] + 1) * layers[i + 1]; j++)
+			for (unsigned int j = 0; j < (_layers[i] + 1) * _layers[i + 1]; j++)
 			{
 				#ifdef _DEBUG
-					buffer[j] = (float)j - 2;
+					buffer[j] = (float)0.1 * j - 0.05;
 				#else
 					buffer[j] = distribution(generator);
 				#endif
@@ -266,104 +411,43 @@ bool NeuroG::_inittextures(unsigned int nlayers, const unsigned int *layers, FIL
 		}
 		else
 		{
-			unsigned int matrixsize = (layers[i] + 1) * layers[i + 1];
+			unsigned int matrixsize = (_layers[i] + 1) * _layers[i + 1];
 			if (fread(buffer, sizeof(float), matrixsize, file) < matrixsize) return false;
 		}
 
-		//Init texture 1 as bitwise
-		//Init texture 0 as float
-		for (int a = 1; a >= 0; a--)
+		for (unsigned int a = 0; a < 2; a++)
 		{
-			glGenFramebuffers(1, &_weights[i].tf[a].framebuffer);
-			if (_weights[i].tf[a].framebuffer == GL_ERR) return false;
-			glBindFramebuffer(GL_FRAMEBUFFER, _weights[i].tf[a].framebuffer);
-
-			if (!_inittexture(&_weights[i].tf[a].texture, layers[i] + 1, layers[i + 1], buffer, a == 1)) return false;
-
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _weights[i].tf[a].texture, 0);
-			glViewport(0, 0, layers[i] + 1, layers[i + 1]);
+			if (!_create_framebuffer_texture(&_weights[a][i].texture, &_weights[a][i].framebuffer, _layers[i] + 1, _layers[i + 1], buffer, false)) return false;
 		}
 
-		//Draw from texture 1 to texture 0
-		glBindTexture(GL_TEXTURE_2D, _weights[i].tf[1].texture);
-		glUniform1i(_bitwise2dprog.width, layers[i] + 1);
-		glUniform1i(_bitwise2dprog.height, layers[i + 1]);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glFinish();
+		if (!_store(_weights[0][i].texture, _layers[i] + 1, _layers[i + 1], buffer, _weights[0][i].framebuffer, GL_ERR)) return false;
 
 		#ifdef _DEBUG
 			float check[10];
 			memset(check, 0, 10 * sizeof(float));
-			glBindTexture(GL_TEXTURE_2D, _weights[i].tf[0].texture);
+			glBindTexture(GL_TEXTURE_2D, _weights[0][i].texture);
 			glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, check);
 			int q = 0;
-		#endif
-
-		//Reinit texture 1 as float (data may be wrong)
-		glDeleteTextures(1, &_weights[i].tf[1].texture);
-		if (!_inittexture(&_weights[i].tf[1].texture, layers[i] + 1, layers[i + 1], buffer, false)) return false;
-
-		#ifdef _DEBUG
-			memset(check, 0, 10 * sizeof(float));
-			glBindTexture(GL_TEXTURE_2D, _weights[i].tf[1].texture);
-			glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, check);
-			q = 0;
 		#endif
 	}
 
 	return true;
 };
 
-bool NeuroG::_initobjects()
-{
-	//Initializing d1 distribution
-	GLfloat d1[] = { -1.0f, 1.0f };
-
-	glGenVertexArrays(1, &_distribute1dvao);
-	glBindVertexArray(_distribute1dvao);
-	glGenBuffers(1, &_distribute1dvbo);
-	glBindBuffer(GL_ARRAY_BUFFER, _distribute1dvbo);
-	glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(GLfloat), d1, GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, sizeof(GLfloat), (GLvoid*)0);
-	glEnableVertexAttribArray(0);
-
-	//Initializing d2 distribution
-	GLfloat d2[] =	{	1.0f,	1.0f,
-						-1.0f,	1.0f,
-						-1.0f,	-1.0f,
-
-						-1.0f,	-1.0f,
-						1.0f,	-1.0f,
-						1.0f,	1.0f,
-					};
-
-	
-	glGenVertexArrays(1, &_distribute2dvao);
-	glBindVertexArray(_distribute2dvao);
-	glGenBuffers(1, &_distribute2dvbo);
-	glBindBuffer(GL_ARRAY_BUFFER, _distribute2dvbo);
-	glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(GLfloat), d2, GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)sizeof(GLfloat));
-	glEnableVertexAttribArray(1);
-	
-	return true;
-};
-
 bool NeuroG::_init(unsigned int nlayers, const unsigned int *layers, FILE *file)
 {
-	if (!_initglut()							||
-		!_initprograms()						||
-		!_initvectors(nlayers, layers)			||
-		!_inittextures(nlayers, layers, file)	||
-		!_initobjects()) return false;
+	if (!_init_glut()							||
+		!_init_programs()						||
+		!_init_objects()						||
+		!_init_test()							||
+		!_init_vectors(nlayers, layers)			||
+		!_init_textures(file)) return false;
 	
 	_ok = true;
 	return true;
 };
 
-bool NeuroG::_initfromfile(const wchar_t *filepath)
+bool NeuroG::_init_from_file(const wchar_t *filepath)
 {
 	ir::FileResource file = _wfsopen(filepath, L"rb", _SH_DENYNO);
 	if (file == nullptr) return false;
@@ -390,7 +474,7 @@ NeuroG::NeuroG(unsigned int nlayers, const unsigned int *layers, bool *ok)
 
 NeuroG::NeuroG(const wchar_t *filepath, bool *ok)
 {
-	bool r = _initfromfile(filepath);
+	bool r = _init_from_file(filepath);
 	if (ok != nullptr) *ok = r;
 };
 
@@ -398,25 +482,7 @@ bool NeuroG::set_input(const float *input)
 {
 	if (!_ok) return false;
 	
-	//program
-	glUseProgram(_bitwise1dprog.program);
-	glBindVertexArray(_distribute1dvao);
-	glUniform1i(_bitwise1dprog.length, _layers[0]);
-	
-	//vector
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, _byteinput);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, _layers[0], 0, GL_RGBA, GL_UNSIGNED_BYTE, input);
-	glUniform1i(_bitwise1dprog.vector, 0);
-
-	//framebuffer
-	glBindFramebuffer(GL_TEXTURE_2D, _vectors[0].framebuffer);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _vectors[0].texture, 0);
-	glViewport(0, 0, 1, _layers[0]);
-
-	//calculate
-	glDrawArrays(GL_LINES, 0, 2);
-	glFinish();
+	bool r = _store(_vectors[0].texture, 1, _layers[0], input, _vectors[0].framebuffer, _bitinput_texture);
 
 	#ifdef _DEBUG
 		float check[10];
@@ -426,14 +492,23 @@ bool NeuroG::set_input(const float *input)
 		int q = 0;
 	#endif
 	
-	return true;
+	return r;
 };
 
 bool NeuroG::set_goal(const float *goal)
 {
 	if (!_ok) return false;
-	glBindTexture(GL_TEXTURE_2D, _bytegoal);
+
+	glBindTexture(GL_TEXTURE_2D, _goal_texture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, _layers[_nlayers - 1], 0, GL_RGBA, GL_UNSIGNED_BYTE, goal);
+
+	#ifdef _DEBUG
+		float check[10];
+		memset(check, 0, 10 * sizeof(float));
+		glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, check);
+		int q = 0;
+	#endif
+
 	return true;
 };
 
@@ -469,10 +544,10 @@ bool NeuroG::forward()
 		glUniform1i(_forwardprog.prevvector, 0);
 		
 		glActiveTexture(GL_TEXTURE0 + 1);
-		glBindTexture(GL_TEXTURE_2D, _weights[i].tf[_switch].texture);
+		glBindTexture(GL_TEXTURE_2D, _weights[_switch][i].texture);
 		glUniform1i(_forwardprog.weights, 1);
 		
-		glBindFramebuffer(GL_TEXTURE_2D, _vectors[i + 1].framebuffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, _vectors[i + 1].framebuffer);
 		//WTF? Do I need to initialize framebuffers?
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _vectors[i + 1].texture, 0);
 		glViewport(0, 0, 1, _layers[i + 1]);
@@ -504,10 +579,10 @@ bool NeuroG::backward()
 	glUniform1i(_lastbackwardprog.lestvector, 0);
 	//goal
 	glActiveTexture(GL_TEXTURE0 + 1);
-	glBindTexture(GL_TEXTURE_2D, _bytegoal);
+	glBindTexture(GL_TEXTURE_2D, _goal_texture);
 	glUniform1i(_lastbackwardprog.goal, 1);
 	//last error
-	glBindFramebuffer(GL_TEXTURE_2D, _errors[_nlayers - 2].framebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, _errors[_nlayers - 2].framebuffer);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _errors[_nlayers - 2].texture, 0);
 	glViewport(0, 0, 1, _layers[_nlayers - 1]);
 	//calculating
@@ -538,10 +613,10 @@ bool NeuroG::backward()
 		glUniform1i(_backwardprog.prevvector, 1);
 		//weights
 		glActiveTexture(GL_TEXTURE0 + 2);
-		glBindTexture(GL_TEXTURE_2D, _weights[i].tf[_switch].texture);
+		glBindTexture(GL_TEXTURE_2D, _weights[_switch][i].texture);
 		glUniform1i(_backwardprog.weights, 2);
 		//previous error
-		glBindFramebuffer(GL_TEXTURE_2D, _errors[i - 1].framebuffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, _errors[i - 1].framebuffer);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _errors[i - 1].texture, 0);
 		glViewport(0, 0, 1, _layers[i]);
 		//calculating
@@ -575,11 +650,11 @@ bool NeuroG::backward()
 		glUniform1i(_corrigateprog.prevvector, 1);
 		//weights
 		glActiveTexture(GL_TEXTURE0 + 2);
-		glBindTexture(GL_TEXTURE_2D, _weights[i - 1].tf[_switch].texture);
+		glBindTexture(GL_TEXTURE_2D, _weights[_switch][i - 1].texture);
 		glUniform1i(_corrigateprog.weights, 2);
 		//new weights
-		glBindFramebuffer(GL_TEXTURE_2D, _weights[i - 1].tf[_switch ^ 1].framebuffer);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _weights[i - 1].tf[_switch ^ 1].texture, 0);
+		glBindFramebuffer(GL_FRAMEBUFFER, _weights[_switch ^ 1][i - 1].framebuffer);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _weights[_switch ^ 1][i - 1].texture, 0);
 		glViewport(0, 0, _layers[i - 1] + 1, _layers[i]);
 		//calculating
 		glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -588,7 +663,7 @@ bool NeuroG::backward()
 		#ifdef _DEBUG
 			float check[10];
 			memset(check, 0, 10 * sizeof(float));
-			glBindTexture(GL_TEXTURE_2D, _weights[i - 1].tf[_switch ^ 1].texture);
+			glBindTexture(GL_TEXTURE_2D, _weights[_switch ^ 1][i - 1].texture);
 			glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, check);
 			int q = 0;
 		#endif
@@ -641,39 +716,40 @@ NeuroG::~NeuroG()
 	if (_distribute2dvbo != GL_ERR) glDeleteBuffers(1, &_distribute2dvbo);
 	if (_distribute2dvao != GL_ERR) glDeleteVertexArrays(1, &_distribute2dvao);
 
-	if (_bytegoal != GL_ERR) glDeleteTextures(1, &_bytegoal);
-
-	if (_vectors != nullptr)
+	if (_goal_texture != GL_ERR) glDeleteTextures(1, &_goal_texture);
+	if (_bitinput_texture != GL_ERR) glDeleteTextures(1, &_bitinput_texture);
+	
+	if (_vectors.data() != nullptr)
 	{
 		for (unsigned int i = 0; i < _nlayers; i++)
 		{
 			if (_vectors[i].texture != GL_ERR) glDeleteTextures(1, &_vectors[i].texture);
 			if (_vectors[i].framebuffer != GL_ERR) glDeleteFramebuffers(1, &_vectors[i].framebuffer);
 		}
-		free(_vectors);
+		free(_vectors.data());
 	}
 
-	if (_errors != nullptr)
+	if (_errors.data() != nullptr)
 	{
 		for (unsigned int i = 0; i < (_nlayers - 1); i++)
 		{
 			if (_errors[i].texture != GL_ERR) glDeleteTextures(1, &_errors[i].texture);
 			if (_errors[i].framebuffer != GL_ERR) glDeleteFramebuffers(1, &_errors[i].framebuffer);
 		}
-		free(_errors);
+		free(_errors.data());
 	}
 
-	if (_weights != nullptr)
+	for (unsigned int a = 0; a < 2; a++)
 	{
-		for (unsigned int i = 0; i < (_nlayers - 1); i++)
+		if (_weights[a].data() != nullptr)
 		{
-			for (unsigned int a = 0; i < 1; a++)
+			for (unsigned int i = 0; i < (_nlayers - 1); i++)
 			{
-				if (_weights[i].tf[a].texture != GL_ERR) glDeleteTextures(1, &_weights[i].tf[a].texture);
-				if (_weights[i].tf[a].framebuffer != GL_ERR) glDeleteFramebuffers(1, &_weights[i].tf[a].framebuffer);
+				if (_weights[a][i].texture != GL_ERR) glDeleteTextures(1, &_weights[a][i].texture);
+				if (_weights[a][i].framebuffer != GL_ERR) glDeleteFramebuffers(1, &_weights[a][i].framebuffer);
 			}
 		}
-		free(_weights);
+		free(_weights[a].data());
 	}
 
 	if (_layers != nullptr) free(_layers);

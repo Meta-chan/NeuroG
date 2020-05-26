@@ -1,17 +1,14 @@
 #version 330 core
 
-in float varposition;
-
 uniform sampler2D weights;
 uniform sampler2D prevvector;
 uniform int prevlength;
-uniform int nextlength;
 
 out float nextvectorelem;
 
 void main()
 {
-	int iposition = int(nextlength * (varposition * 0.5f + 0.5f));
+	int iposition = int(gl_FragCoord.y - 0.5);
 	float sum = texelFetch(weights, ivec2(0, iposition), 0).r;
 	for (int i = 0; i < prevlength; i++)
 	{

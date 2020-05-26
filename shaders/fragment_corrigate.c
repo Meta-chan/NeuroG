@@ -1,21 +1,16 @@
 #version 330 core
 
-in float varhorizontal;
-in float varvertical;
-
 uniform sampler2D weights;
 uniform sampler2D nexterror;
 uniform sampler2D prevvector;
-uniform int prevlength;
-uniform int nextlength;
 uniform float koef;
 
 out float newweightselem;
 
 void main()
 {
-	int ihorizontal = int((prevlength + 1) * (varhorizontal * 0.5f + 0.5f));
-	int ivertical = int(nextlength * (varvertical * 0.5f + 0.5f));
+	int ihorizontal = int(gl_FragCoord.x - 0.5);
+	int ivertical = int(gl_FragCoord.y - 0.5);
 	
 	float oldweightselem = texelFetch(weights, ivec2(ihorizontal, ivertical), 0).r;
 	float nexterrorelem = texelFetch(nexterror, ivec2(0, ivertical), 0).r;

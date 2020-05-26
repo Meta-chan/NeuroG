@@ -8,8 +8,8 @@ int main()
 	float output, goal;
 
 	bool ok;
-	unsigned int lays[2] = { 2, 1 };
-	NeuroG net(2, lays, &ok);
+	unsigned int lays[3] = { 2, 2, 1 };
+	NeuroG net(3, lays, &ok);
 	if (!ok) return 1;
 	net.set_koef(0.001f);
 
@@ -20,7 +20,7 @@ int main()
 		b[1] = rand() % 2;
 		input[0] = (float)(2 * b[0] - 1);
 		input[1] = (float)(2 * b[1] - 1);
-		goal = (float)(2 * (b[0] & b[1]) - 1);
+		goal = (float)(2 * (b[0] ^ b[1]) - 1);
 		
 		net.set_input(input);
 		net.forward();

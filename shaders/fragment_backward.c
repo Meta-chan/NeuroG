@@ -1,18 +1,15 @@
 #version 330 core
 
-in float varposition;
-
 uniform sampler2D weights;
 uniform sampler2D nexterror;
 uniform sampler2D prevvector;
-uniform int prevlength;
 uniform int nextlength;
 
 out float preverrorelem;
 
 void main()
 {
-	int iposition = int(prevlength * (varposition * 0.5f + 0.5f));
+	int iposition = int(gl_FragCoord.y - 0.5);
 	float error = 0.0f;
 	for (int i = 0; i < nextlength; i++)
 	{

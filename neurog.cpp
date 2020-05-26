@@ -127,34 +127,26 @@ bool NeuroG::_init_programs()
 		!_link_program("bitwise_2d", distribute2d, bitwise2d, &_bitwise2dprog.program)) return false;
 
 	//getting addresses of uniforms
-	if ((_forwardprog.nextlength = glGetUniformLocation(_forwardprog.program, "nextlength")) == GL_ERR ||
-		(_forwardprog.prevlength = glGetUniformLocation(_forwardprog.program, "prevlength")) == GL_ERR ||
+	if ((_forwardprog.prevlength = glGetUniformLocation(_forwardprog.program, "prevlength")) == GL_ERR ||
 		(_forwardprog.prevvector = glGetUniformLocation(_forwardprog.program, "prevvector")) == GL_ERR ||
 		(_forwardprog.weights = glGetUniformLocation(_forwardprog.program, "weights")) == GL_ERR ||
 
 		(_lastbackwardprog.goal = glGetUniformLocation(_lastbackwardprog.program, "goal")) == GL_ERR ||
-		(_lastbackwardprog.lastlength = glGetUniformLocation(_lastbackwardprog.program, "lastlength")) == GL_ERR ||
 		(_lastbackwardprog.lestvector = glGetUniformLocation(_lastbackwardprog.program, "lastvector")) == GL_ERR ||
 
 		(_backwardprog.nextlength = glGetUniformLocation(_backwardprog.program, "nextlength")) == GL_ERR ||
 		(_backwardprog.nexterror = glGetUniformLocation(_backwardprog.program, "nexterror")) == GL_ERR ||
-		(_backwardprog.prevlength = glGetUniformLocation(_backwardprog.program, "prevlength")) == GL_ERR ||
 		(_backwardprog.prevvector = glGetUniformLocation(_backwardprog.program, "prevvector")) == GL_ERR ||
 		(_backwardprog.weights = glGetUniformLocation(_backwardprog.program, "weights")) == GL_ERR ||
 
 		(_corrigateprog.koef = glGetUniformLocation(_corrigateprog.program, "koef")) == GL_ERR ||
-		(_corrigateprog.nextlength = glGetUniformLocation(_corrigateprog.program, "nextlength")) == GL_ERR ||
 		(_corrigateprog.nexterror = glGetUniformLocation(_corrigateprog.program, "nexterror")) == GL_ERR ||
-		(_corrigateprog.prevlength = glGetUniformLocation(_corrigateprog.program, "prevlength")) == GL_ERR ||
 		(_corrigateprog.prevvector = glGetUniformLocation(_corrigateprog.program, "prevvector")) == GL_ERR ||
 		(_corrigateprog.weights = glGetUniformLocation(_corrigateprog.program, "weights")) == GL_ERR ||
 
-		(_bitwise1dprog.length = glGetUniformLocation(_bitwise1dprog.program, "length")) == GL_ERR ||
 		(_bitwise1dprog.vector = glGetUniformLocation(_bitwise1dprog.program, "vector")) == GL_ERR ||
 
-		(_bitwise2dprog.height = glGetUniformLocation(_bitwise2dprog.program, "height")) == GL_ERR ||
-		(_bitwise2dprog.weights = glGetUniformLocation(_bitwise2dprog.program, "weights")) == GL_ERR ||
-		(_bitwise2dprog.width = glGetUniformLocation(_bitwise2dprog.program, "width")) == GL_ERR)
+		(_bitwise2dprog.weights = glGetUniformLocation(_bitwise2dprog.program, "weights")) == GL_ERR)
 		return false;
 
 	return true;
@@ -257,14 +249,11 @@ bool NeuroG::_store(GLuint texture, unsigned int width, unsigned int height, con
 		{
 			glUseProgram(_bitwise1dprog.program);
 			glBindVertexArray(_distribute1dvao);
-			glUniform1i(_bitwise1dprog.length, height);
 		}
 		else
 		{
 			glUseProgram(_bitwise2dprog.program);
 			glBindVertexArray(_distribute2dvao);
-			glUniform1i(_bitwise2dprog.width, width);
-			glUniform1i(_bitwise2dprog.height, height);
 		}
 
 		//vector
@@ -537,7 +526,6 @@ bool NeuroG::forward()
 	for (unsigned int i = 0; i < (_nlayers - 1); i++)
 	{
 		glUniform1i(_forwardprog.prevlength, _layers[i]);
-		glUniform1i(_forwardprog.nextlength, _layers[i + 1]);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, _vectors[i].texture);
@@ -572,7 +560,6 @@ bool NeuroG::backward()
 
 	glUseProgram(_lastbackwardprog.program);
 	glBindVertexArray(_distribute1dvao);
-	glUniform1i(_lastbackwardprog.lastlength, _layers[_nlayers - 1]);
 	//last vector
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, _vectors[_nlayers - 1].texture);
@@ -601,7 +588,6 @@ bool NeuroG::backward()
 	for (unsigned int i = _nlayers - 2; i > 0; i--)
 	{
 		glUniform1i(_backwardprog.nextlength, _layers[i]);
-		glUniform1i(_backwardprog.prevlength, _layers[i - 1]);
 
 		//next error
 		glActiveTexture(GL_TEXTURE0);
@@ -637,9 +623,6 @@ bool NeuroG::backward()
 	glUniform1fv(_corrigateprog.koef, 1, &_koef);
 	for (unsigned int i = _nlayers - 1; i > 0; i--)
 	{
-		glUniform1i(_corrigateprog.nextlength, _layers[i]);
-		glUniform1i(_corrigateprog.prevlength, _layers[i - 1]);
-
 		//next error
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, _errors[i - 1].texture);

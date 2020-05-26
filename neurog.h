@@ -33,21 +33,18 @@ private:
 		GLuint weights			= GL_ERR;
 		GLuint prevvector		= GL_ERR;
 		GLuint prevlength		= GL_ERR;
-		GLuint nextlength		= GL_ERR;
 	};
 
 	struct LastBackwardProgram : Program
 	{
 		GLuint lestvector		= GL_ERR;
 		GLuint goal				= GL_ERR;
-		GLuint lastlength		= GL_ERR;
 	};
 
 	struct BackwardProgram : Program
 	{
 		GLuint weights			= GL_ERR;
 		GLuint nexterror		= GL_ERR;
-		GLuint prevlength		= GL_ERR;
 		GLuint prevvector		= GL_ERR;
 		GLuint nextlength		= GL_ERR;
 	};
@@ -56,22 +53,17 @@ private:
 	{
 		GLuint weights			= GL_ERR;
 		GLuint nexterror		= GL_ERR;
-		GLuint prevlength		= GL_ERR;
 		GLuint prevvector		= GL_ERR;
-		GLuint nextlength		= GL_ERR;
 		GLuint koef				= GL_ERR;
 	};
 
 	struct Bitwise1dProgram : Program
 	{
-		GLuint length			= GL_ERR;
 		GLuint vector			= GL_ERR;
 	};
 
 	struct Bitwise2dProgram : Program
 	{
-		GLuint width			= GL_ERR;
-		GLuint height			= GL_ERR;
 		GLuint weights			= GL_ERR;
 	};
 

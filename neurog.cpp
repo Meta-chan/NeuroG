@@ -2,7 +2,6 @@
 #include "gl3patch.h"
 #include <shellapi.h>
 #include <time.h>
-#include <random>
 #include <share.h>
 #include <assert.h>
 #define IR_IMPLEMENT
@@ -189,7 +188,7 @@ bool NeuroG::_init_objects()
 	return true;
 };
 
-bool NeuroG::_create_texture(GLuint *texture, unsigned int width, unsigned int height, const void *data, bool bitwise)
+bool NeuroG::_create_texture(GLuint *texture, unsigned int width, unsigned int height, bool bitwise)
 {
 	glGenTextures(1, texture);
 	if (*texture == GL_ERR) return false;
@@ -198,27 +197,54 @@ bool NeuroG::_create_texture(GLuint *texture, unsigned int width, unsigned int h
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	if (bitwise) glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-	else glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, data);
+	if (bitwise) glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	else glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, nullptr);
 	return true;
 };
 
-bool NeuroG::_create_framebuffer_texture(GLuint *texture, GLuint *framebuffer, unsigned int width, unsigned int height, const void *data, bool bitwise)
+bool NeuroG::_create_framebuffer(GLuint *framebuffer, GLuint texture, unsigned int width, unsigned int height)
 {
 	glGenFramebuffers(1, framebuffer);
 	if (*framebuffer == GL_ERR) return false;
 	glBindFramebuffer(GL_FRAMEBUFFER, *framebuffer);
-	if (!_create_texture(texture, width, height, data, false)) return false;
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, *texture, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
 	glViewport(0, 0, width, height);
 	return true;
 };
 
-bool NeuroG::_store(GLuint texture, unsigned int width, unsigned int height, const float *data, GLuint framebuffer, GLuint bittexture)
+bool NeuroG::_fill_column(unsigned int height,
+	float *data, FILE *file, std::default_random_engine* generator)
+{
+	if (file != nullptr)
+	{
+		if (fread(data, sizeof(float), height, file) < height) return false;
+	}
+	else if (generator != nullptr)
+	{
+		std::uniform_real_distribution<float> distribution(-1.0f, 1.0f);
+		for (unsigned int i = 0; i < height; i++)
+		{
+			#ifdef _DEBUG
+				data[i] = (float)i - 1;
+			#else
+				data[i] = distribution(*generator);
+			#endif
+		}
+	}
+	return true;
+};
+
+bool NeuroG::_store(GLuint texture, unsigned int width, unsigned int height,
+	float *data, FILE *file, std::default_random_engine* generator, GLuint framebuffer, GLuint bittexture)
 {
 	if (_hardware_direct_store)
 	{
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, data);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		for (unsigned int column = 0; column < width; column++)
+		{
+			if (!_fill_column(height, data, file, generator)) return false;
+			glTexSubImage2D(GL_TEXTURE_2D, 0, column, 0, 1, height, GL_RED, GL_FLOAT, data);
+		}
 	}
 	else
 	{
@@ -232,7 +258,7 @@ bool NeuroG::_store(GLuint texture, unsigned int width, unsigned int height, con
 		bool buftex = (bittexture == GL_ERR);
 		if (buftex)
 		{
-			if (!_create_texture(&bittexture, width, height, data, true))
+			if (!_create_texture(&bittexture, width, height, true))
 			{
 				if (bufframe) glDeleteFramebuffers(1, &framebuffer);
 				return false;
@@ -241,7 +267,12 @@ bool NeuroG::_store(GLuint texture, unsigned int width, unsigned int height, con
 		else
 		{
 			glBindTexture(GL_TEXTURE_2D, bittexture);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		}
+
+		for (unsigned int column = 0; column < width; column++)
+		{
+			if (!_fill_column(height, data, file, generator)) return false;
+			glTexSubImage2D(GL_TEXTURE_2D, 0, column, 0, 1, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		}
 
 		//program
@@ -283,7 +314,8 @@ bool NeuroG::_init_test()
 	//Direct store test
 	GLuint test = GL_ERR;
 	float data = - 1.0f / 3.0f;
-	if (!_create_texture(&test, 1, 1, &data, false)) return false;
+	if (!_create_texture(&test, 1, 1, false)) return false;
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, 1, GL_RED, GL_FLOAT, &data);
 	data = 0;
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, &data);
 	_hardware_direct_store = (abs(data + 1.0f / 3.0f) < 0.001);
@@ -291,7 +323,7 @@ bool NeuroG::_init_test()
 
 	//Store Test
 	data = -1.0f / 7.0f;
-	_store(test, 1, 1, &data, GL_ERR, GL_ERR);
+	if (!_store(test, 1, 1, &data, nullptr, nullptr, GL_ERR, GL_ERR)) return false;
 	data = 0;
 	glBindTexture(GL_TEXTURE_2D, test);
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, &data);
@@ -342,74 +374,60 @@ bool NeuroG::_init_textures(FILE *file)
 {
 	//Allocating maximal buffer
 	unsigned int maxsize = 0;
-	for (unsigned int i = 0; i < (_nlayers - 1); i++)
+	for (unsigned int i = 0; i < _nlayers; i++)
 	{
-		if ((_layers[i] + 1) * _layers[i + 1] > maxsize) maxsize = (_layers[i] + 1) * _layers[i + 1];
+		if (_layers[i] + 1 > maxsize) maxsize = _layers[i] + 1;
 	}
 	ir::MemResource<float> buffer = (float*)malloc(maxsize * sizeof(float));
 	if (buffer == nullptr) return false;
 	memset(buffer, 0, maxsize * sizeof(float));
 	
 	//Initializing _vectors and _framebuffers
-	if (_hardware_direct_store)
+	if (!_create_texture(&_vectors[0].texture, 1, _layers[0], false)) return false; 
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, _layers[0], GL_RED, GL_FLOAT, buffer);
+	if (!_hardware_direct_store)
 	{
-		if (!_create_texture(&_vectors[0].texture, 1, _layers[0], buffer, false)) return false;
-	}
-	else
-	{
-		if (!_create_framebuffer_texture(&_vectors[0].texture, &_vectors[0].framebuffer, 1, _layers[0], buffer, false)) return false;
+		if (!_create_framebuffer(&_vectors[0].framebuffer, _vectors[0].texture, 1, _layers[0])) return false;
 	}
 
 	for (unsigned int i = 1; i < _nlayers; i++)
 	{
-		if (!_create_framebuffer_texture(&_vectors[i].texture, &_vectors[i].framebuffer, 1, _layers[i], buffer, false)) return false;
+		if (!_create_texture(&_vectors[i].texture, 1, _layers[i], false)) return false;
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, _layers[i], GL_RED, GL_FLOAT, buffer);
+		if (!_create_framebuffer(&_vectors[i].framebuffer, _vectors[i].texture, 1, _layers[i])) return false;
 	}
 
 	//Initializing _errors
 	for (unsigned int i = 0; i < (_nlayers - 1); i++)
 	{
-		if (!_create_framebuffer_texture(&_errors[i].texture, &_errors[i].framebuffer, 1, _layers[i + 1], buffer, false)) return false;
+		if (!_create_texture(&_errors[i].texture, 1, _layers[i + 1], false)) return false;
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, _layers[i + 1], GL_RED, GL_FLOAT, buffer);
+		if (!_create_framebuffer(&_errors[i].framebuffer, _errors[i].texture, 1, _layers[i + 1])) return false;
 	}
 
 	//Initializing goal (bitwise)
-	if (!_create_texture(&_goal_texture, 1, _layers[_nlayers - 1], buffer, true)) return false;
+	if (!_create_texture(&_goal_texture, 1, _layers[_nlayers - 1], true)) return false;
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, _layers[_nlayers - 1], GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 
 	//Initializing extra vectors/framebuffers
 	if (!_hardware_direct_store)
 	{
-		if (!_create_texture(&_bitinput_texture, 1, _layers[0], buffer, true)) return false;
+		if (!_create_texture(&_bitinput_texture, 1, _layers[0], true)) return false;
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, _layers[0], GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 	}
 
 	//Initializing weights
 	std::default_random_engine generator;
 	generator.seed((unsigned int)time(nullptr));
-	std::uniform_real_distribution<float> distribution(-1.0f, 1.0f);
 
 	for (unsigned int i = 0; i < (_nlayers - 1); i++)
 	{
-		if (file == nullptr)
-		{
-			for (unsigned int j = 0; j < (_layers[i] + 1) * _layers[i + 1]; j++)
-			{
-				#ifdef _DEBUG
-					buffer[j] = (float)0.1 * j - 0.05;
-				#else
-					buffer[j] = distribution(generator);
-				#endif
-			}
-		}
-		else
-		{
-			unsigned int matrixsize = (_layers[i] + 1) * _layers[i + 1];
-			if (fread(buffer, sizeof(float), matrixsize, file) < matrixsize) return false;
-		}
-
 		for (unsigned int a = 0; a < 2; a++)
 		{
-			if (!_create_framebuffer_texture(&_weights[a][i].texture, &_weights[a][i].framebuffer, _layers[i] + 1, _layers[i + 1], buffer, false)) return false;
+			if (!_create_texture(&_weights[a][i].texture, _layers[i] + 1, _layers[i + 1], false)) return false;
+			if (!_create_framebuffer(&_weights[a][i].framebuffer, _weights[a][i].texture, _layers[i] + 1, _layers[i + 1])) return false;
+			if (!_store(_weights[a][i].texture, _layers[i] + 1, _layers[i + 1], buffer, file, &generator, _weights[a][i].framebuffer, GL_ERR)) return false;
 		}
-
-		if (!_store(_weights[0][i].texture, _layers[i] + 1, _layers[i + 1], buffer, _weights[0][i].framebuffer, GL_ERR)) return false;
 
 		#ifdef _DEBUG
 			float check[10];
@@ -470,8 +488,9 @@ NeuroG::NeuroG(const wchar_t *filepath, bool *ok)
 bool NeuroG::set_input(const float *input)
 {
 	if (!_ok) return false;
-	
-	bool r = _store(_vectors[0].texture, 1, _layers[0], input, _vectors[0].framebuffer, _bitinput_texture);
+
+	//Very very dirty. Fix!
+	bool r = _store(_vectors[0].texture, 1, _layers[0], (float*)input, nullptr, nullptr, _vectors[0].framebuffer, _bitinput_texture);
 
 	#ifdef _DEBUG
 		float check[10];
@@ -489,7 +508,7 @@ bool NeuroG::set_goal(const float *goal)
 	if (!_ok) return false;
 
 	glBindTexture(GL_TEXTURE_2D, _goal_texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, _layers[_nlayers - 1], 0, GL_RGBA, GL_UNSIGNED_BYTE, goal);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, _layers[_nlayers - 1], GL_RGBA, GL_UNSIGNED_BYTE, goal);
 
 	#ifdef _DEBUG
 		float check[10];
@@ -669,9 +688,9 @@ bool NeuroG::save(const wchar_t *filepath)
 	if (fwrite(&_nlayers, sizeof(unsigned int), 1, file) == 0) return false;
 
 	unsigned int maxsize = 0;
-	for (unsigned int i = 0; i < (_nlayers - 1); i++)
+	for (unsigned int i = 0; i < _nlayers; i++)
 	{
-		if ((_layers[i] + 1) * _layers[i + 1] > maxsize) maxsize = (_layers[i] + 1) * _layers[i + 1];
+		if (_layers[i] + 1 > maxsize) maxsize = _layers[i] + 1;
 	}
 	ir::MemResource<float> buffer = (float*)malloc(maxsize * sizeof(float));
 	if (buffer == nullptr) return false;
@@ -679,9 +698,12 @@ bool NeuroG::save(const wchar_t *filepath)
 
 	for (unsigned int i = 0; i < (_nlayers - 1); i++)
 	{
-		glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, buffer);
-		unsigned int matrixsize = (_layers[i] + 1) * _layers[i + 1];
-		if (fwrite(buffer, sizeof(float), matrixsize, file) < matrixsize) return false;
+		glBindTexture(GL_TEXTURE_2D, _weights[_switch][i].texture);
+		for (unsigned int column = 0; column < (_layers[i] + 1); column++)
+		{
+			glReadPixels(column, 0, 1, _layers[i + 1], GL_RED, GL_FLOAT, buffer);
+			if (fwrite(buffer, sizeof(float), _layers[i + 1], file) < _layers[i + 1]) return false;
+		}
 	}
 
 	return true;

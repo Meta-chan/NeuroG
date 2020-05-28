@@ -5,6 +5,7 @@
 #include <GL/freeglut.h>
 #define GL_ERR ((GLuint)-1)
 #include <stdio.h>
+#include <random>
 #include "assert_pointer.h"
 
 class NeuroG
@@ -66,7 +67,7 @@ private:
 	{
 		GLuint weights			= GL_ERR;
 	};
-
+	
 	bool _ok					= false;
 	unsigned int _nlayers		= 0;
 	unsigned int *_layers		= nullptr;
@@ -100,9 +101,12 @@ private:
 	bool _link_program(const char *programname, GLuint vertex, GLuint fragment, GLuint *program);
 	bool _init_programs();
 	bool _init_objects();
-	bool _create_texture(GLuint *texture, unsigned int width, unsigned int height, const void *data, bool bitwise);
-	bool _create_framebuffer_texture(GLuint *texture, GLuint *framebuffer, unsigned int width, unsigned int height, const void *data, bool bitwise);
-	bool _store(GLuint texture, unsigned int width, unsigned int height, const float *data, GLuint framebuffer, GLuint bittexure);
+	bool _create_texture(GLuint *texture, unsigned int width, unsigned int height, bool bitwise);
+	bool _create_framebuffer(GLuint *framebuffer, GLuint texture, unsigned int width, unsigned int height);
+	bool _fill_column(unsigned int height,
+		float *data, FILE *file, std::default_random_engine* generator);
+	bool _store(GLuint texture, unsigned int width, unsigned int height,
+		float *data, FILE *file, std::default_random_engine* generator, GLuint framebuffer, GLuint bittexture);
 	bool _init_test();
 	bool _init_vectors(unsigned int nlayers, const unsigned int *layers);
 	bool _init_textures(FILE *file);

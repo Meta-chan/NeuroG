@@ -11,7 +11,7 @@ int main()
 	unsigned int lays[3] = { 2, 2, 1 };
 	NeuroG net(3, lays, &ok);
 	if (!ok) return 1;
-	net.set_koef(0.001f);
+	net.set_coefficient(0.001f);
 
 	for (unsigned int i = 0; i < 100000; i++)
 	{

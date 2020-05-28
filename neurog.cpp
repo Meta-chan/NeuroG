@@ -138,7 +138,7 @@ bool NeuroG::_init_programs()
 		(_backwardprog.prevvector = glGetUniformLocation(_backwardprog.program, "prevvector")) == GL_ERR ||
 		(_backwardprog.weights = glGetUniformLocation(_backwardprog.program, "weights")) == GL_ERR ||
 
-		(_corrigateprog.koef = glGetUniformLocation(_corrigateprog.program, "koef")) == GL_ERR ||
+		(_corrigateprog.coefficient = glGetUniformLocation(_corrigateprog.program, "coefficient")) == GL_ERR ||
 		(_corrigateprog.nexterror = glGetUniformLocation(_corrigateprog.program, "nexterror")) == GL_ERR ||
 		(_corrigateprog.prevvector = glGetUniformLocation(_corrigateprog.program, "prevvector")) == GL_ERR ||
 		(_corrigateprog.weights = glGetUniformLocation(_corrigateprog.program, "weights")) == GL_ERR ||
@@ -520,10 +520,10 @@ bool NeuroG::set_goal(const float *goal)
 	return true;
 };
 
-bool NeuroG::set_koef(float koef)
+bool NeuroG::set_coefficient(float coefficient)
 {
 	if (!_ok) return false;
-	_koef = koef;
+	_coefficient = coefficient;
 	return true;
 };
 
@@ -639,7 +639,7 @@ bool NeuroG::backward()
 
 	glUseProgram(_corrigateprog.program);
 	glBindVertexArray(_distribute2dvao);
-	glUniform1fv(_corrigateprog.koef, 1, &_koef);
+	glUniform1fv(_corrigateprog.coefficient, 1, &_coefficient);
 	for (unsigned int i = _nlayers - 1; i > 0; i--)
 	{
 		//next error

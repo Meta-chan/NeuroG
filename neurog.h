@@ -55,7 +55,7 @@ private:
 		GLuint weights			= GL_ERR;
 		GLuint nexterror		= GL_ERR;
 		GLuint prevvector		= GL_ERR;
-		GLuint koef				= GL_ERR;
+		GLuint coefficient		= GL_ERR;
 	};
 
 	struct Bitwise1dProgram : Program
@@ -72,7 +72,7 @@ private:
 	unsigned int _nlayers		= 0;
 	unsigned int *_layers		= nullptr;
 	unsigned int _switch		= 0;		//switch between textures
-	float _koef					= 0.0f;
+	float _coefficient					= 0.0f;
 	bool _hardware_direct_store	= false;
 	
 	//Extended vectors/framebuffers are needed to
@@ -118,7 +118,7 @@ public:
 	NeuroG(const wchar_t *filepath, bool *ok);
 	bool set_input(const float *input);
 	bool set_goal(const float *goal);
-	bool set_koef(float koef);
+	bool set_coefficient(float coefficient);
 	bool get_output(float *output);
 	bool forward();
 	bool backward();

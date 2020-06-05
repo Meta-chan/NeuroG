@@ -9,11 +9,11 @@ int main()
 
 	bool ok;
 	unsigned int lays[3] = { 2, 2, 1 };
-	NeuroG net(3, lays, &ok);
+	NeuroG net(3, lays, 1.0f, &ok);
 	if (!ok) return 1;
 	net.set_coefficient(0.001f);
 
-	for (unsigned int i = 0; i < 100000; i++)
+	for (unsigned int i = 0; i < 10000; i++)
 	{
 		char b[2];
 		b[0] = rand() % 2;
@@ -23,8 +23,9 @@ int main()
 		goal = (float)(2 * (b[0] ^ b[1]) - 1);
 		
 		net.set_input(input);
+		net.set_output_pointer(&output);
 		net.forward();
-		net.get_output(&output);
+		net.get_output();
 		printf("%i %i -> %f\n", b[0], b[1], output);
 	
 		net.set_goal(&goal);

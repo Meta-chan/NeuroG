@@ -1,5 +1,6 @@
 #include "neurog.h"
 #include "gl3patch.h"
+#include "shaders.h"
 #include <shellapi.h>
 #include <time.h>
 #include <share.h>
@@ -41,31 +42,12 @@ bool NeuroG::_init_glut()
 	return gl3patch();
 };
 
-bool NeuroG::_compile_shader(const char *filename, bool vertex, GLuint *shader)
+bool NeuroG::_compile_shader(const char *name, const char *source, bool vertex, GLuint *shader)
 {
-	//Opening file
-	char relpath[128];
-	strcpy_s(relpath, "shaders/");
-	strcat_s(relpath, filename);
-
-	ir::FileResource file = _fsopen(relpath, "rb", _SH_DENYNO);
-	if (file == nullptr) return false;
-	fseek(file, 0, SEEK_END);
-	unsigned int filesize = ftell(file);
-	fseek(file, 0, SEEK_SET);
-
-	//Reading file
-	ir::MemResource<char> source = (char*)malloc(filesize + 1);
-	if (source == nullptr) return false;
-	unsigned int read = fread(source, 1, filesize, file);
-	if (read != filesize) return false;
-	source[filesize] = '\0';
-
 	//Compiling shader
 	*shader = glCreateShader(vertex ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER);
 	if (*shader == GL_ERR) return false;
-	const char *constsource = source;
-	glShaderSource(*shader, 1, &constsource, NULL);
+	glShaderSource(*shader, 1, &source, NULL);
 	glCompileShader(*shader);
 
 	//Writing log if error
@@ -75,7 +57,7 @@ bool NeuroG::_compile_shader(const char *filename, bool vertex, GLuint *shader)
 	if (!success)
 	{
 		glGetShaderInfoLog(*shader, 512, NULL, infoLog);
-		printf("OpenGL shader compilation error in file %s\n%s", filename, infoLog);
+		printf("OpenGL shader compilation error in file %s\n%s", name, infoLog);
 		return false;
 	}
 
@@ -108,44 +90,44 @@ bool NeuroG::_init_programs()
 	ir::ShaderResource distribute1d, distribute2d, forward, lastbackward, backward, corrigate, bitwise1d, bitwise2d;
 
 	//Compiling shaders
-	if (!_compile_shader("vertex_distribute_1d.c", true, &distribute1d.value()) ||
-		!_compile_shader("vertex_distribute_2d.c", true, &distribute2d.value()) ||
-		!_compile_shader("fragment_forward.c", false, &forward.value()) ||
-		!_compile_shader("fragment_lastbackward.c", false, &lastbackward.value()) ||
-		!_compile_shader("fragment_backward.c", false, &backward.value()) ||
-		!_compile_shader("fragment_corrigate.c", false, &corrigate.value()) ||
-		!_compile_shader("fragment_bitwise_1d.c", false, &bitwise1d.value()) ||
-		!_compile_shader("fragment_bitwise_2d.c", false, &bitwise2d.value())) return false;
+	if (!_compile_shader("vertex_distribute_1d", shader_vertex_distribute_1d, true, &distribute1d.value())		||
+		!_compile_shader("vertex_distribute_2d", shader_vertex_distribute_2d, true, &distribute2d.value())		||
+		!_compile_shader("fragment_forward", shader_fragment_forward, false, &forward.value())					||
+		!_compile_shader("fragment_lastbackward", shader_fragment_lastbackward, false, &lastbackward.value())	||
+		!_compile_shader("fragment_backward", shader_fragment_backward, false, &backward.value())				||
+		!_compile_shader("fragment_corrigate", shader_fragment_corrigate, false, &corrigate.value())			||
+		!_compile_shader("fragment_bitwise_1d", shader_fragment_bitwise_1d, false, &bitwise1d.value())			||
+		!_compile_shader("fragment_bitwise_2d", shader_fragment_bitwise_2d, false, &bitwise2d.value())) return false;
 
 	//Linking programs
-	if (!_link_program("forward", distribute1d, forward, &_forwardprog.program) ||
-		!_link_program("lastbackward", distribute1d, lastbackward, &_lastbackwardprog.program) ||
-		!_link_program("backward", distribute1d, backward, &_backwardprog.program) ||
-		!_link_program("corrigate", distribute2d, corrigate, &_corrigateprog.program) ||
-		!_link_program("bitwise_1d", distribute1d, bitwise1d, &_bitwise1dprog.program) ||
+	if (!_link_program("forward", distribute1d, forward, &_forwardprog.program)									||
+		!_link_program("lastbackward", distribute1d, lastbackward, &_lastbackwardprog.program)					||
+		!_link_program("backward", distribute1d, backward, &_backwardprog.program)								||
+		!_link_program("corrigate", distribute2d, corrigate, &_corrigateprog.program)							||
+		!_link_program("bitwise_1d", distribute1d, bitwise1d, &_bitwise1dprog.program)							||
 		!_link_program("bitwise_2d", distribute2d, bitwise2d, &_bitwise2dprog.program)) return false;
 
 	//getting addresses of uniforms
-	if ((_forwardprog.prevlength = glGetUniformLocation(_forwardprog.program, "prevlength")) == GL_ERR ||
-		(_forwardprog.prevvector = glGetUniformLocation(_forwardprog.program, "prevvector")) == GL_ERR ||
-		(_forwardprog.weights = glGetUniformLocation(_forwardprog.program, "weights")) == GL_ERR ||
+	if ((_forwardprog.prevlength = glGetUniformLocation(_forwardprog.program, "prevlength"))			== GL_ERR	||
+		(_forwardprog.prevvector = glGetUniformLocation(_forwardprog.program, "prevvector"))			== GL_ERR	||
+		(_forwardprog.weights = glGetUniformLocation(_forwardprog.program, "weights"))					== GL_ERR	||
 
-		(_lastbackwardprog.goal = glGetUniformLocation(_lastbackwardprog.program, "goal")) == GL_ERR ||
-		(_lastbackwardprog.lestvector = glGetUniformLocation(_lastbackwardprog.program, "lastvector")) == GL_ERR ||
+		(_lastbackwardprog.goal = glGetUniformLocation(_lastbackwardprog.program, "goal"))				== GL_ERR	||
+		(_lastbackwardprog.lestvector = glGetUniformLocation(_lastbackwardprog.program, "lastvector"))	== GL_ERR	||
 
-		(_backwardprog.nextlength = glGetUniformLocation(_backwardprog.program, "nextlength")) == GL_ERR ||
-		(_backwardprog.nexterror = glGetUniformLocation(_backwardprog.program, "nexterror")) == GL_ERR ||
-		(_backwardprog.prevvector = glGetUniformLocation(_backwardprog.program, "prevvector")) == GL_ERR ||
-		(_backwardprog.weights = glGetUniformLocation(_backwardprog.program, "weights")) == GL_ERR ||
+		(_backwardprog.nextlength = glGetUniformLocation(_backwardprog.program, "nextlength"))			== GL_ERR	||
+		(_backwardprog.nexterror = glGetUniformLocation(_backwardprog.program, "nexterror"))			== GL_ERR	||
+		(_backwardprog.prevvector = glGetUniformLocation(_backwardprog.program, "prevvector"))			== GL_ERR	||
+		(_backwardprog.weights = glGetUniformLocation(_backwardprog.program, "weights"))				== GL_ERR	||
 
-		(_corrigateprog.coefficient = glGetUniformLocation(_corrigateprog.program, "coefficient")) == GL_ERR ||
-		(_corrigateprog.nexterror = glGetUniformLocation(_corrigateprog.program, "nexterror")) == GL_ERR ||
-		(_corrigateprog.prevvector = glGetUniformLocation(_corrigateprog.program, "prevvector")) == GL_ERR ||
-		(_corrigateprog.weights = glGetUniformLocation(_corrigateprog.program, "weights")) == GL_ERR ||
+		(_corrigateprog.coefficient = glGetUniformLocation(_corrigateprog.program, "coefficient"))		== GL_ERR	||
+		(_corrigateprog.nexterror = glGetUniformLocation(_corrigateprog.program, "nexterror"))			== GL_ERR	||
+		(_corrigateprog.prevvector = glGetUniformLocation(_corrigateprog.program, "prevvector"))		== GL_ERR	||
+		(_corrigateprog.weights = glGetUniformLocation(_corrigateprog.program, "weights"))				== GL_ERR	||
 
-		(_bitwise1dprog.vector = glGetUniformLocation(_bitwise1dprog.program, "vector")) == GL_ERR ||
-
-		(_bitwise2dprog.weights = glGetUniformLocation(_bitwise2dprog.program, "weights")) == GL_ERR)
+		(_bitwise1dprog.vector = glGetUniformLocation(_bitwise1dprog.program, "vector"))				== GL_ERR	||
+		
+		(_bitwise2dprog.weights = glGetUniformLocation(_bitwise2dprog.program, "weights"))				== GL_ERR)
 		return false;
 
 	return true;
@@ -213,7 +195,7 @@ bool NeuroG::_create_framebuffer(GLuint *framebuffer, GLuint texture, unsigned i
 };
 
 bool NeuroG::_fill_column(unsigned int height,
-	float *data, FILE *file, std::default_random_engine* generator)
+	float *data, FILE *file, float amplitude, std::default_random_engine* generator)
 {
 	if (file != nullptr)
 	{
@@ -227,7 +209,7 @@ bool NeuroG::_fill_column(unsigned int height,
 			#ifdef _DEBUG
 				data[i] = (float)i - 1;
 			#else
-				data[i] = distribution(*generator);
+				data[i] = amplitude * distribution(*generator);
 			#endif
 		}
 	}
@@ -235,14 +217,14 @@ bool NeuroG::_fill_column(unsigned int height,
 };
 
 bool NeuroG::_store(GLuint texture, unsigned int width, unsigned int height,
-	float *data, FILE *file, std::default_random_engine* generator, GLuint framebuffer, GLuint bittexture)
+	float *data, FILE *file, float amplitude, std::default_random_engine* generator, GLuint framebuffer, GLuint bittexture)
 {
 	if (_hardware_direct_store)
 	{
 		glBindTexture(GL_TEXTURE_2D, texture);
 		for (unsigned int column = 0; column < width; column++)
 		{
-			if (!_fill_column(height, data, file, generator)) return false;
+			if (!_fill_column(height, data, file, amplitude, generator)) return false;
 			glTexSubImage2D(GL_TEXTURE_2D, 0, column, 0, 1, height, GL_RED, GL_FLOAT, data);
 		}
 	}
@@ -271,7 +253,7 @@ bool NeuroG::_store(GLuint texture, unsigned int width, unsigned int height,
 
 		for (unsigned int column = 0; column < width; column++)
 		{
-			if (!_fill_column(height, data, file, generator)) return false;
+			if (!_fill_column(height, data, file, amplitude, generator)) return false;
 			glTexSubImage2D(GL_TEXTURE_2D, 0, column, 0, 1, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		}
 
@@ -323,7 +305,7 @@ bool NeuroG::_init_test()
 
 	//Store Test
 	data = -1.0f / 7.0f;
-	if (!_store(test, 1, 1, &data, nullptr, nullptr, GL_ERR, GL_ERR)) return false;
+	if (!_store(test, 1, 1, &data, nullptr, 1.0f, nullptr, GL_ERR, GL_ERR)) return false;
 	data = 0;
 	glBindTexture(GL_TEXTURE_2D, test);
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, &data);
@@ -370,7 +352,7 @@ bool NeuroG::_init_vectors(unsigned int nlayers, const unsigned int *layers)
 	return true;
 };
 
-bool NeuroG::_init_textures(FILE *file)
+bool NeuroG::_init_textures(float amplitude, FILE *file)
 {
 	//Allocating maximal buffer
 	unsigned int maxsize = 0;
@@ -426,7 +408,7 @@ bool NeuroG::_init_textures(FILE *file)
 		{
 			if (!_create_texture(&_weights[a][i].texture, _layers[i] + 1, _layers[i + 1], false)) return false;
 			if (!_create_framebuffer(&_weights[a][i].framebuffer, _weights[a][i].texture, _layers[i] + 1, _layers[i + 1])) return false;
-			if (!_store(_weights[a][i].texture, _layers[i] + 1, _layers[i + 1], buffer, file, &generator, _weights[a][i].framebuffer, GL_ERR)) return false;
+			if (!_store(_weights[a][i].texture, _layers[i] + 1, _layers[i + 1], buffer, file, amplitude, &generator, _weights[a][i].framebuffer, GL_ERR)) return false;
 		}
 
 		#ifdef _DEBUG
@@ -441,22 +423,26 @@ bool NeuroG::_init_textures(FILE *file)
 	return true;
 };
 
-bool NeuroG::_init(unsigned int nlayers, const unsigned int *layers, FILE *file)
+bool NeuroG::_init(unsigned int nlayers, const unsigned int *layers, float amplitude, FILE *file)
 {
 	if (!_init_glut()							||
 		!_init_programs()						||
 		!_init_objects()						||
 		!_init_test()							||
 		!_init_vectors(nlayers, layers)			||
-		!_init_textures(file)) return false;
+		!_init_textures(amplitude, file)) return false;
 	
 	_ok = true;
 	return true;
 };
 
-bool NeuroG::_init_from_file(const wchar_t *filepath)
+bool NeuroG::_init_from_file(const ir::syschar *filepath)
 {
-	ir::FileResource file = _wfsopen(filepath, L"rb", _SH_DENYNO);
+	#ifdef _WIN32
+		ir::FileResource file = _wfsopen(filepath, L"rb", _SH_DENYNO);
+	#else
+		ir::FileResource file = fopen(filepath, "rb");
+	#endif
 	if (file == nullptr) return false;
 
 	FileHeader header, sample;
@@ -470,16 +456,16 @@ bool NeuroG::_init_from_file(const wchar_t *filepath)
 	ir::MemResource<unsigned int> layers = (unsigned int*)malloc(nlayers * sizeof(unsigned int));
 	if (fread(layers, sizeof(unsigned int), nlayers, file) < nlayers) return false;
 
-	return _init(nlayers, layers, file);
+	return _init(nlayers, layers, 1.0f, file);
 };
 
-NeuroG::NeuroG(unsigned int nlayers, const unsigned int *layers, bool *ok)
+NeuroG::NeuroG(unsigned int nlayers, const unsigned int *layers, float amplitude, bool *ok)
 {
-	bool r = _init(nlayers, layers, nullptr);
+	bool r = _init(nlayers, layers, amplitude, nullptr);
 	if (ok != nullptr) *ok = r;
 };
 
-NeuroG::NeuroG(const wchar_t *filepath, bool *ok)
+NeuroG::NeuroG(const ir::syschar *filepath, bool *ok)
 {
 	bool r = _init_from_file(filepath);
 	if (ok != nullptr) *ok = r;
@@ -490,7 +476,7 @@ bool NeuroG::set_input(const float *input)
 	if (!_ok) return false;
 
 	//Very very dirty. Fix!
-	bool r = _store(_vectors[0].texture, 1, _layers[0], (float*)input, nullptr, nullptr, _vectors[0].framebuffer, _bitinput_texture);
+	bool r = _store(_vectors[0].texture, 1, _layers[0], (float*)input, nullptr, 1.0f, nullptr, _vectors[0].framebuffer, _bitinput_texture);
 
 	#ifdef _DEBUG
 		float check[10];
@@ -523,15 +509,25 @@ bool NeuroG::set_goal(const float *goal)
 bool NeuroG::set_coefficient(float coefficient)
 {
 	if (!_ok) return false;
+	if (coefficient <= 0.0f) return false;
 	_coefficient = coefficient;
 	return true;
 };
 
-bool NeuroG::get_output(float *output)
+bool NeuroG::set_output_pointer(float *output)
 {
 	if (!_ok) return false;
+	if (output == nullptr) return false;
+	_useroutput = output;
+	return true;
+};
+
+bool NeuroG::get_output()
+{
+	if (!_ok) return false;
+	if (_useroutput == nullptr) return false;
 	glBindTexture(GL_TEXTURE_2D, _vectors[_nlayers - 1].texture);
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, output);
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, _useroutput);
 	return true;
 };
 
@@ -675,11 +671,16 @@ bool NeuroG::backward()
 	return true;
 };
 
-bool NeuroG::save(const wchar_t *filepath)
+bool NeuroG::save(const ir::syschar *filepath)
 {
 	if (!_ok) return false;
 
-	ir::FileResource file = _wfsopen(filepath, L"wb", _SH_DENYNO);
+	#ifdef _WIN32
+		ir::FileResource file = _wfsopen(filepath, L"wb", _SH_DENYNO);
+	#else
+		ir::FileResource file = fopen(filepath, "wb");
+	#endif
+
 	if (file == nullptr) return false;
 
 	FileHeader header;

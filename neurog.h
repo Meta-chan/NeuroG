@@ -6,6 +6,9 @@
 #define GL_ERR ((GLuint)-1)
 #include <stdio.h>
 #include <random>
+
+#include <ir_syschar.h>
+
 #include "assert_pointer.h"
 
 class NeuroG
@@ -72,7 +75,8 @@ private:
 	unsigned int _nlayers		= 0;
 	unsigned int *_layers		= nullptr;
 	unsigned int _switch		= 0;		//switch between textures
-	float _coefficient					= 0.0f;
+	float _coefficient			= 0.0f;
+	float *_useroutput			= nullptr;
 	bool _hardware_direct_store	= false;
 	
 	//Extended vectors/framebuffers are needed to
@@ -97,32 +101,33 @@ private:
 	Bitwise2dProgram _bitwise2dprog;
 
 	bool _init_glut();
-	bool _compile_shader(const char *filename, bool vertex, GLuint *shader);
+	bool _compile_shader(const char *name, const char *source, bool vertex, GLuint *shader);
 	bool _link_program(const char *programname, GLuint vertex, GLuint fragment, GLuint *program);
 	bool _init_programs();
 	bool _init_objects();
 	bool _create_texture(GLuint *texture, unsigned int width, unsigned int height, bool bitwise);
 	bool _create_framebuffer(GLuint *framebuffer, GLuint texture, unsigned int width, unsigned int height);
 	bool _fill_column(unsigned int height,
-		float *data, FILE *file, std::default_random_engine* generator);
+		float *data, FILE *file, float amplitude, std::default_random_engine* generator);
 	bool _store(GLuint texture, unsigned int width, unsigned int height,
-		float *data, FILE *file, std::default_random_engine* generator, GLuint framebuffer, GLuint bittexture);
+		float *data, FILE *file, float amplitude, std::default_random_engine* generator, GLuint framebuffer, GLuint bittexture);
 	bool _init_test();
 	bool _init_vectors(unsigned int nlayers, const unsigned int *layers);
-	bool _init_textures(FILE *file);
-	bool _init(unsigned int nlayers, const unsigned int *layers, FILE *file);
-	bool _init_from_file(const wchar_t *filepath);
+	bool _init_textures(float amplitude, FILE *file);
+	bool _init(unsigned int nlayers, const unsigned int *layers, float amplitude, FILE *file);
+	bool _init_from_file(const ir::syschar *filepath);
 
 public:
-	NeuroG(unsigned int nlayers, const unsigned int *layers, bool *ok);
-	NeuroG(const wchar_t *filepath, bool *ok);
+	NeuroG(unsigned int nlayers, const unsigned int *layers, float amplitude, bool *ok);
+	NeuroG(const ir::syschar *filepath, bool *ok);
 	bool set_input(const float *input);
 	bool set_goal(const float *goal);
 	bool set_coefficient(float coefficient);
-	bool get_output(float *output);
+	bool set_output_pointer(float *output);
+	bool get_output();
 	bool forward();
 	bool backward();
-	bool save(const wchar_t *filepath);
+	bool save(const ir::syschar *filepath);
 	~NeuroG();
 };
 

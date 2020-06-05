@@ -100,6 +100,14 @@ private:
 	Bitwise1dProgram _bitwise1dprog;
 	Bitwise2dProgram _bitwise2dprog;
 
+	typedef const float *(FillColumnFunction)(unsigned int height, void *user);
+	struct FillColumnDirectUser	{ const float *data = nullptr; };
+	struct FillColumnRandomUser { float amplitude = 0.0f; std::default_random_engine *generator = nullptr; float *buffer = nullptr; };
+	struct FillColumnFileUser { FILE *file = nullptr; float *buffer = nullptr; };
+	static const float *_fill_column_direct(unsigned int height, void *user);
+	static const float *_fill_column_random(unsigned int height, void *user);
+	static const float *_fill_column_file(unsigned int height, void *user);
+
 	bool _init_glut();
 	bool _compile_shader(const char *name, const char *source, bool vertex, GLuint *shader);
 	bool _link_program(const char *programname, GLuint vertex, GLuint fragment, GLuint *program);
@@ -107,10 +115,8 @@ private:
 	bool _init_objects();
 	bool _create_texture(GLuint *texture, unsigned int width, unsigned int height, bool bitwise);
 	bool _create_framebuffer(GLuint *framebuffer, GLuint texture, unsigned int width, unsigned int height);
-	bool _fill_column(unsigned int height,
-		float *data, FILE *file, float amplitude, std::default_random_engine* generator);
 	bool _store(GLuint texture, unsigned int width, unsigned int height,
-		float *data, FILE *file, float amplitude, std::default_random_engine* generator, GLuint framebuffer, GLuint bittexture);
+		FillColumnFunction *function, void *user, GLuint framebuffer, GLuint bittexture);
 	bool _init_test();
 	bool _init_vectors(unsigned int nlayers, const unsigned int *layers);
 	bool _init_textures(float amplitude, FILE *file);

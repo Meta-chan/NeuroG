@@ -1,5 +1,3 @@
-#Copy-paste from github:
-
 # Compiled source #
 ###################
 *.com
@@ -37,10 +35,24 @@
 ehthumbs.db
 Thumbs.db
 
-#Visual Studio Specific:
+# Ironic Library #
+##################
+documentation
+
+# Visual Studio files #
+#######################
 **/.vs
 **/*VCXPROJ*
 **/*.SLN
 **/Debug/
 **/Release/
 **/x64
+
+# Ironic database files #
+#########################
+*.idt
+*.idt~
+
+# Ironic neural network #
+#########################
+*.inr

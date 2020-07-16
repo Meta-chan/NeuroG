@@ -93,12 +93,15 @@ private:
 	GLuint _distribute2dvao		= GL_ERR;
 	GLuint _distribute2dvbo		= GL_ERR;
 
-	ForwardProgram _forwardprog;
-	LastBackwardProgram _lastbackwardprog;
-	BackwardProgram _backwardprog;
-	CorrigateProgram _corrigateprog;
-	Bitwise1dProgram _bitwise1dprog;
-	Bitwise2dProgram _bitwise2dprog;
+	struct
+	{
+		ForwardProgram forward;
+		LastBackwardProgram lastbackward;
+		BackwardProgram backward;
+		CorrigateProgram corrigate;
+		Bitwise1dProgram bitwise1d;
+		Bitwise2dProgram bitwise2d;
+	} _programs;
 
 	typedef const float *(FillColumnFunction)(unsigned int height, void *user);
 	struct FillColumnDirectUser	{ const float *data = nullptr; };

@@ -18,14 +18,14 @@ typedef void (__stdcall GlGetShaderInfoLog)(GLuint shader, GLsizei maxLength, GL
 typedef GLuint  (__stdcall GlCreateProgram)(void);
 typedef void (__stdcall GlAttachShader)(GLuint program, GLuint shader);
 typedef void (__stdcall GlLinkProgram)(GLuint program);
-typedef void(__stdcall GlDeleteProgram)(GLuint program);
+typedef void (__stdcall GlDeleteProgram)(GLuint program);
 typedef void (__stdcall GlGetProgramiv)(GLuint program, GLenum pname, GLint *params);
 typedef void (__stdcall GlGetProgramInfoLog)(GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog);
 typedef void (__stdcall GlDeleteShader)(GLuint shader);
 typedef void (__stdcall GlGenVertexArrays)(GLsizei n, GLuint *arrays);
-typedef void(__stdcall GlDeleteVertexArrays)(GLsizei n, const GLuint *arrays);
+typedef void (__stdcall GlDeleteVertexArrays)(GLsizei n, const GLuint *arrays);
 typedef void (__stdcall GlGenBuffers)(GLsizei n, GLuint * buffers);
-typedef void(__stdcall GlDeleteBuffers)(GLsizei n, const GLuint * buffers);
+typedef void (__stdcall GlDeleteBuffers)(GLsizei n, const GLuint * buffers);
 typedef void (__stdcall GlBufferData)(GLenum target, GLsizeiptr size, const void * data, GLenum usage);
 typedef void (__stdcall GlVertexAttribPointer)(GLuint index, GLint size, GLenum type, GLboolean normalized,	GLsizei stride,	const void * pointer);
 typedef void (__stdcall GlEnableVertexAttribArray)(GLuint index);
@@ -88,7 +88,10 @@ extern GlActiveTexture *glActiveTexture;
 #define GL_R32F					33326
 #define GL_CLAMP_TO_BORDER		0x812D
 #define GL_TEXTURE0				33984
+#define GL_MAX_TEXTURE_IMAGE_UNITS 0x8872
 
 bool gl3patch();
+
+#include "gl3patch_implementation.h"
 
 #endif

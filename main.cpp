@@ -1,3 +1,5 @@
+#define IR_IMPLEMENT
+#define IR_MATHG_FREEGLUT
 #include "neurog.h"
 
 int main()

@@ -37,7 +37,8 @@ private:
 	VectorG *_errors			= nullptr;
 	VectorG *_goal				= nullptr;
 
-	bool _init(unsigned int nlayers, const unsigned int *layers, float amplitude, FILE *file);
+	typedef bool ReadFunction(void *user, unsigned int count, float *buffer);
+	bool _init(unsigned int nlayers, const unsigned int *layers, void *user, ReadFunction *function);
 	bool _init_from_file(const ir::syschar *filepath);
 
 public:

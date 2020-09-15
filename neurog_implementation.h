@@ -12,7 +12,7 @@ unsigned int NeuroG::_lastbackward_index	= MG_UNINITED_INDEX;
 unsigned int NeuroG::_backward_index		= MG_UNINITED_INDEX;
 unsigned int NeuroG::_corrigate_index		= MG_UNINITED_INDEX;
 
-bool NeuroG::_init(unsigned int nlayers, const unsigned int *layers, float amplitude, FILE *file)
+bool NeuroG::_init(unsigned int nlayers, const unsigned int *layers, void *user, ReadFunction *function)
 {
 	if (!MathG::init(true)) return false;
 
@@ -24,6 +24,15 @@ bool NeuroG::_init(unsigned int nlayers, const unsigned int *layers, float ampli
 		if (layers[i] == 0) return false;	//quit if zero neyrons in layer
 	}
 
+	//Allocate buffer
+	unsigned int maxsize = 0;
+	for (unsigned int i = 0; i < nlayers; i++)
+	{
+		if (maxsize < layers[i] + 1) maxsize = layers[i] + 1;
+	}
+	ir::MemResource<float> buffer = (float*)malloc(maxsize * sizeof(float));
+	if (buffer == nullptr) return false;
+
 	//Initializing _weights (n - 1)
 	_weights = (MatrixG2*)malloc((nlayers - 1) * sizeof(MatrixG2));
 	if (_weights == nullptr) return false;
@@ -34,6 +43,13 @@ bool NeuroG::_init(unsigned int nlayers, const unsigned int *layers, float ampli
 		if (!ok) return false;
 		new(&_weights[i].m[1])MatrixG(layers[i] + 1, layers[i + 1], &ok);
 		if (!ok) return false;
+
+		for (unsigned int j = 0; j < layers[i] + 1; j++)
+		{
+			if (!function(user, layers[i + 1], buffer)) return false;
+			if (!_weights[i].m[0].store_column(j, buffer)) return false;
+			if (!_weights[i].m[1].store_column(j, buffer)) return false;
+		}
 	}
 
 	//Initializing _vectors (n)
@@ -52,7 +68,7 @@ bool NeuroG::_init(unsigned int nlayers, const unsigned int *layers, float ampli
 	for (unsigned int i = 0; i < (nlayers - 1); i++)
 	{
 		bool ok;
-		new(&_errors[i]) VectorG(layers[i], &ok);
+		new(&_errors[i]) VectorG(layers[i + 1], &ok);
 		if (!ok) return false;
 	}
 
@@ -63,6 +79,7 @@ bool NeuroG::_init(unsigned int nlayers, const unsigned int *layers, float ampli
 	new(_goal) VectorG(layers[_nlayers - 1], &ok);
 	if (!ok) return false;
 
+	_ok = true;
 	return true;
 };
 
@@ -86,12 +103,38 @@ bool NeuroG::_init_from_file(const ir::syschar *filepath)
 	ir::MemResource<unsigned int> layers = (unsigned int*)malloc(nlayers * sizeof(unsigned int));
 	if (fread(layers, sizeof(unsigned int), nlayers, file) < nlayers) return false;
 
-	return _init(nlayers, layers, 1.0f, file);
+	struct User
+	{
+		FILE *file = nullptr;
+		static bool read(void *user, unsigned int count, float *data)
+		{
+			User *u = (User*)user;
+			return (fread(data, sizeof(float), count, u->file) == count);
+		};
+	} user;
+
+	return _init(nlayers, layers, &user, &User::read);
 };
 
 NeuroG::NeuroG(unsigned int nlayers, const unsigned int *layers, float amplitude, bool *ok)
 {
-	bool r = _init(nlayers, layers, amplitude, nullptr);
+	struct User
+	{
+		float amplitude;
+		std::uniform_real_distribution<float> distribution;
+		std::default_random_engine engine;
+		User(float amplitude) : amplitude(amplitude) {};
+		static bool read(void *user, unsigned int count, float *data)
+		{
+			User *u = (User*)user;
+			for (unsigned int i = 0; i < count; i++) data[i] = u->distribution(u->engine);
+			//DEBUG
+			for (unsigned int i = 0; i < count; i++) data[i] = 0.1f + 0.1f * i;
+			return true;
+		};
+	} user(amplitude);
+
+	bool r = _init(nlayers, layers, &user, &User::read);
 	if (ok != nullptr) *ok = r;
 };
 
@@ -181,7 +224,6 @@ bool NeuroG::forward()
 				}
 
 				nextvectorelem = tanh(sum);
-				//nextvectorelem = 0.001 * tanh(sum) - 0.42;
 			};
 		)";
 		op.check = [](MathG::Argument* arguments, ObjectG *result) -> bool
@@ -191,7 +233,7 @@ bool NeuroG::forward()
 				&& arguments[0].m->height() == ((VectorG*)result)->height());
 		};
 
-		_forward_index = MathG::submit(op);
+		_forward_index = MathG::submit(&op);
 		if (_forward_index == MG_ERROR_INDEX) return false;
 	}
 
@@ -244,7 +286,7 @@ bool NeuroG::backward()
 				&& arguments[0].v->height() == ((VectorG*)result)->height());
 		};
 
-		_lastbackward_index = MathG::submit(op);
+		_lastbackward_index = MathG::submit(&op);
 		if (_lastbackward_index == MG_ERROR_INDEX) return false;
 	}
 
@@ -294,12 +336,12 @@ bool NeuroG::backward()
 		op.check = [](MathG::Argument* arguments, ObjectG *result) -> bool
 		{
 			arguments[3].u = arguments[1].v->height();
-			return(arguments[0].m->width() == arguments[1].v->height() + 1
-				&& arguments[0].m->height() == arguments[2].v->height()
-				&& arguments[0].m->height() == ((VectorG*)result)->height());
+			return(arguments[0].m->width() == arguments[2].v->height() + 1
+				&& arguments[0].m->height() == arguments[1].v->height()
+				&& arguments[0].m->width() == ((VectorG*)result)->height() + 1);
 		};
 
-		_backward_index = MathG::submit(op);
+		_backward_index = MathG::submit(&op);
 		if (_backward_index == MG_ERROR_INDEX) return false;
 	}
 
@@ -348,36 +390,40 @@ bool NeuroG::backward()
 		)";
 		op.check = [](MathG::Argument* arguments, ObjectG *result) -> bool
 		{
-			return(arguments[0].m->width() == arguments[1].v->height() + 1
-				&& arguments[0].m->height() == arguments[2].v->height()
-				&& arguments[0].m->height() == ((VectorG*)result)->height());
+			return(arguments[0].m->width() == arguments[2].v->height() + 1
+				&& arguments[0].m->height() == arguments[1].v->height()
+				&& arguments[0].m->height() == ((MatrixG*)result)->height()
+				&& arguments[0].m->width() == ((MatrixG*)result)->width());
 		};
 
-		_corrigate_index = MathG::submit(op);
+		_corrigate_index = MathG::submit(&op);
 		if (_corrigate_index == MG_ERROR_INDEX) return false;
 	}
 
 	MathG::Argument arguments[4];
 	arguments[0].v = &_vectors[_nlayers - 1];
 	arguments[1].v = _goal;
-	MathG::perform(_lastbackward_index, arguments, &_errors[_nlayers - 2]);
+	if (!MathG::perform(_lastbackward_index, arguments, &_errors[_nlayers - 2])) return false;
 
 	for (unsigned int i = _nlayers - 2; i > 0; i--)
 	{
 		arguments[0].m = &_weights[i].m[_switch];
 		arguments[1].v = &_errors[i];
-		arguments[2].v = &_vectors[i - 1];
-		MathG::perform(_backward_index, arguments, &_errors[i - 1]);
-	}
+		arguments[2].v = &_vectors[i];
+		if (!MathG::perform(_backward_index, arguments, &_errors[i - 1])) return false;
 
-	for (unsigned int i = _nlayers - 1; i > 0; i--)
-	{
 		arguments[0].m = &_weights[i].m[_switch];
 		arguments[1].v = &_errors[i];
-		arguments[2].v = &_vectors[i - 1];
+		arguments[2].v = &_vectors[i];
 		arguments[3].f = _coefficient;
-		MathG::perform(_backward_index, arguments, &_weights[i].m[_switch ^ 1]);
+		if (!MathG::perform(_corrigate_index, arguments, &_weights[i].m[_switch ^ 1])) return false;
 	}
+
+	arguments[0].m = &_weights[0].m[_switch];
+	arguments[1].v = &_errors[0];
+	arguments[2].v = &_vectors[0];
+	arguments[3].f = _coefficient;
+	if (!MathG::perform(_corrigate_index, arguments, &_weights[0].m[_switch ^ 1])) return false;
 
 	_switch ^= 1;
 	return true;

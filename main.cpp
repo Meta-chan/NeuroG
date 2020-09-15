@@ -15,7 +15,7 @@ int main()
 	if (!ok) return 1;
 	net.set_coefficient(0.1f);
 
-	for (unsigned int i = 0; i < 10000; i++)
+	for (unsigned int i = 0; i < 100000; i++)
 	{
 		char b[2];
 		b[0] = rand() % 2;
@@ -32,7 +32,9 @@ int main()
 	
 		net.set_goal(&goal);
 		net.backward();
-	}
 
+		GLenum e = glGetError();
+		e = 0;
+	}
 	getchar();
 };

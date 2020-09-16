@@ -1,13 +1,17 @@
 # Welcome to NeuroG!
-NeuroG is ultra-light GPU-accelerated neuronal network.
+NeuroG is ultra-light GPU-accelerated neuronal network. The architecture is simplest of simplest — a multi-layer perceptron with tanh as activating function.
+
+### Installation
+The installation process is integrated with [Ironic Library](https://github.com/Meta-chan/ironic_library), follow the link detailed explanation. But in a nutshell, you can do just this:
+```c++
+#define IR_IMPLEMENT
+#include <neurog.h>
+```
 
 ### Dependencies
-NeuroG depends on [Ironic Library](https://github.com/Meta-chan/ironic_library) and [MathG](https://github.com/Meta-chan/MathG).
+NeuroG is fully based on [MathG](https://github.com/Meta-chan/MathG), so please follow the link to know more about installation, dependencies and platforms. Potentially NeuroG can work with minor changes on every device that supports OpenGL API \> 3.0.
 
-### Platforms
-Supports every platform supported by [MathG](https://github.com/Meta-chan/MathG). Potentially can work on every device that supports OpenGL API.
-
-### Architecture
-Simplest of simplest, multi-layer perceptron with tanh as activating function.
+### Documentation
+The code is pretty self-documented. But more importantly, I provide [Doxygen](https://www.doxygen.nl/manual/starting.html) documentation! It does not look too pretty since I am not an expert, but it is still quite informative. And of course, feel free to contact me!
 
 ###### P.S. My code is not dirty, it is alternatively clean.
